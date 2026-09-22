@@ -252,7 +252,7 @@
 
     <script>
         /* ==========================================================================
-           ESTADO GLOBAL CORREGIDO
+           ESTADO GLOBAL
            ========================================================================== */
         let localStream = null;
         let peer = null;
@@ -267,17 +267,27 @@
         };
 
         let currentFacingMode = "user";
-        // IMPORTANTE: El micrófono debe permanecer habilitado para STT continuo
         let isMicMuted = false;
         let isCamOff = true;
 
         let callSeconds = 0;
         let timerInterval = null;
         let speechRecognizer = null;
+        let availableVoices = [];
 
         /* ==========================================================================
-           INICIO Y MODO DE LA APLICACIÓN
+           INICIALIZACIÓN DE VOCES DEL NAVEGADOR
            ========================================================================== */
+        function loadVoices() {
+            if ('speechSynthesis' in window) {
+                availableVoices = window.speechSynthesis.getVoices();
+            }
+        }
+        if ('speechSynthesis' in window) {
+            loadVoices();
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
         function generateRandomRoom() {
             const randomCode = 'SALA-' + Math.floor(1000 + Math.random() * 9000);
             document.getElementById('inputRoomId').value = randomCode;
@@ -339,56 +349,59 @@
             unlockSpeech();
             document.getElementById("setupModal").classList.add("hidden");
 
-            try {
-                await initMediaStream();
-                initPeerJS();
-                initSpeechRecognition();
-                startCallTimer();
-            } catch (error) {
-                console.error("Error inicializando:", error);
-                alert("No se pudo iniciar cámara/micrófono");
-                document.getElementById("setupModal").classList.remove("hidden");
-            }
+            // Garantizar que la app inicie aunque falle el dispositivo de video
+            await initMediaStream();
+            initPeerJS();
+            initSpeechRecognition();
+            startCallTimer();
         }
 
-        /* ==========================================================================
-           DESBLOQUEAR SPEECH SYNTHESIS EN MÓVILES
-           ========================================================================== */
         function unlockSpeech() {
             if (!window.speechSynthesis) return;
-            window.speechSynthesis.getVoices();
             let test = new SpeechSynthesisUtterance("");
             test.volume = 0;
             window.speechSynthesis.speak(test);
         }
 
         /* ==========================================================================
-           CÁMARA Y MICRÓFONO
+           CÁMARA Y MICRÓFONO (ROBUSTO CONTRA ERRORES HARDWARE)
            ========================================================================== */
         async function initMediaStream() {
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
             }
 
-            let constraints = {
-                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-                video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
-            };
-
             try {
-                localStream = await navigator.mediaDevices.getUserMedia(constraints);
-            } catch (error) {
-                console.warn("Reintentando acceso a cámara estándar:", error);
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                // Intento 1: Audio + Video ideal
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+            } catch (err1) {
+                console.warn("Fallo cámara principal, reintentando cámara básica:", err1);
+                try {
+                    // Intento 2: Audio + Video básico
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                } catch (err2) {
+                    console.warn("Fallo absoluto de cámara/ocupada por otra app. Iniciando MODO SOLO AUDIO:", err2);
+                    try {
+                        // Intento 3: Solo Audio (previene que la app colapse)
+                        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    } catch (err3) {
+                        alert("No se pudo acceder al micrófono. Revisa los permisos de tu navegador.");
+                        return;
+                    }
+                }
             }
 
-            // Micrófono habilitado para STT
+            // Configuración inicial de pistas
             localStream.getAudioTracks().forEach(track => { track.enabled = true; });
-            // Cámara apagada inicialmente según preferencias
-            localStream.getVideoTracks().forEach(track => { track.enabled = false; });
+            localStream.getVideoTracks().forEach(track => { track.enabled = !isCamOff; });
 
             const video = document.getElementById("localVideo");
-            video.srcObject = localStream;
+            if (video && localStream.getVideoTracks().length > 0) {
+                video.srcObject = localStream;
+            }
         }
 
         /* ==========================================================================
@@ -422,7 +435,7 @@
 
             peer.on("error", err => {
                 if (err.type === 'unavailable-id') {
-                    alert("El código de sala ya está en uso. Prueba uniéndote a la sala.");
+                    alert("El código de sala ya está en uso. Prueba uniéndote o cambiando código.");
                 }
             });
         }
@@ -454,7 +467,6 @@
                 try {
                     data = typeof raw === "string" ? JSON.parse(raw) : raw;
                 } catch (e) {
-                    console.error("Mensaje inválido recibido:", e);
                     return;
                 }
 
@@ -491,13 +503,13 @@
         }
 
         /* ==========================================================================
-           RECONOCIMIENTO DE VOZ + TRADUCCIÓN + VOZ
+           RECONOCIMIENTO DE VOZ CONTINUO + TRADUCCIÓN DUAL + TTS
            ========================================================================== */
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
             if (!SpeechRecognition) {
-                document.getElementById("originalSpeechText").textContent = "Este navegador no soporta reconocimiento de voz";
+                document.getElementById("originalSpeechText").textContent = "Navegador no soporta reconocimiento de voz (Usa Chrome/Edge/Safari)";
                 return;
             }
 
@@ -505,7 +517,6 @@
             speechRecognizer.lang = "es-ES";
             speechRecognizer.continuous = true;
             speechRecognizer.interimResults = true;
-            speechRecognizer.maxAlternatives = 3;
 
             speechRecognizer.onresult = (event) => {
                 let text = "";
@@ -513,7 +524,7 @@
                     text += event.results[i][0].transcript;
                 }
 
-                if (text.length > 2) {
+                if (text.trim().length > 1) {
                     document.getElementById("originalSpeechText").textContent = `Escuchando: ${text}`;
                     
                     let isFinal = event.results[event.results.length - 1].isFinal;
@@ -523,7 +534,9 @@
                 }
             };
 
-            speechRecognizer.onerror = (error) => { console.warn("Error STT:", error); };
+            speechRecognizer.onerror = (error) => {
+                console.warn("Aviso STT:", error.error);
+            };
 
             speechRecognizer.onend = () => {
                 if (!isMicMuted) {
@@ -555,19 +568,17 @@
 
         function detectLanguage(text) {
             const lower = text.toLowerCase();
-
-            if (/(hola|gracias|necesito|quiero|puedo|donde|como|estoy|usted|mañana|ayuda)/.test(lower)) return "es";
+            if (/(hola|gracias|necesito|quiero|puedo|donde|como|estoy|usted|mañana|ayuda|buenas)/.test(lower)) return "es";
             if (/(hello|hi|thanks|thank|need|want|where|how|you|help|please|good)/.test(lower)) return "en";
             if (/(bonjour|merci|comment|vous|aide|oui|non)/.test(lower)) return "fr";
             if (/(ola|obrigado|voce|preciso|ajuda)/.test(lower)) return "pt";
             if (/(hallo|danke|bitte|hilfe|wie)/.test(lower)) return "de";
-
             return userConfig.targetLang;
         }
 
         function getDestinationLanguage(source) {
             if (source === "es") return "en";
-            if (source === "en" || source === "fr" || source === "pt" || source === "de") return "es";
+            if (["en", "fr", "pt", "de"].includes(source)) return "es";
             return userConfig.targetLang;
         }
 
@@ -578,19 +589,35 @@
             speakText(translated, target);
         }
 
+        /* API DE TRADUCCIÓN ULTRA-ROBUSTA CON FALLBACK DUAL */
         async function translateText(text, from, to) {
+            if (!text) return "";
+            
+            // Intento 1: Google Translate API Pública
             try {
-                let url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
-                let response = await fetch(url);
-                let data = await response.json();
-
-                if (data.responseData && data.responseData.translatedText) {
-                    return data.responseData.translatedText;
+                let gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
+                let res = await fetch(gUrl);
+                let json = await res.json();
+                if (json && json[0] && json[0][0] && json[0][0][0]) {
+                    return json[0][0][0];
                 }
-            } catch (error) {
-                console.error("Error traducción:", error);
+            } catch (e1) {
+                console.warn("Google Translate fallo, reintentando con MyMemory...", e1);
             }
-            return text;
+
+            // Intento 2: MyMemory API Fallback
+            try {
+                let mUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+                let res = await fetch(mUrl);
+                let json = await res.json();
+                if (json && json.responseData && json.responseData.translatedText) {
+                    return json.responseData.translatedText;
+                }
+            } catch (e2) {
+                console.error("Fallo definitivo en traducción:", e2);
+            }
+
+            return text; // Devuelve el texto original si no hay red
         }
 
         function showTranslation(text) {
@@ -601,22 +628,26 @@
             box.classList.add("subtitle-fade");
         }
 
+        /* REPRODUCCIÓN DE VOZ ROBÓTICA CORREGIDA */
         function speakText(text, lang) {
-            if (!window.speechSynthesis) return;
+            if (!('speechSynthesis' in window) || !text) return;
 
-            window.speechSynthesis.cancel();
-
-            let voices = window.speechSynthesis.getVoices();
-            let voice = voices.find(v => v.lang.toLowerCase().startsWith(lang));
+            window.speechSynthesis.cancel(); // Detener audios anteriores
 
             let utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang === "es" ? "es-ES" : "en-US";
+            utterance.lang = lang === "es" ? "es-ES" : (lang === "en" ? "en-US" : lang);
 
-            if (voice) {
-                utterance.voice = voice;
+            // Buscar voz instalada coincidente
+            if (availableVoices.length === 0) {
+                availableVoices = window.speechSynthesis.getVoices();
             }
 
-            utterance.rate = 0.95;
+            let matchingVoice = availableVoices.find(v => v.lang.toLowerCase().startsWith(lang));
+            if (matchingVoice) {
+                utterance.voice = matchingVoice;
+            }
+
+            utterance.rate = 1.0;
             utterance.pitch = 1.0;
             utterance.volume = 1.0;
 
@@ -632,7 +663,6 @@
             const btn = document.getElementById('btnMic');
 
             isMicMuted = !isMicMuted;
-
             if (track) track.enabled = !isMicMuted;
 
             if (isMicMuted) {
@@ -658,7 +688,6 @@
             const localVideo = document.getElementById('localVideo');
 
             isCamOff = !isCamOff;
-
             if (track) track.enabled = !isCamOff;
 
             if (isCamOff) {
@@ -686,16 +715,12 @@
                 localVideo.classList.remove('mirror-video');
             }
 
-            try {
-                await initMediaStream();
+            await initMediaStream();
 
-                if (activeCall && activeCall.peerConnection) {
-                    const videoTrack = localStream.getVideoTracks()[0];
-                    const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                    if (sender) sender.replaceTrack(videoTrack);
-                }
-            } catch (e) {
-                console.error("Error al conmutar cámara:", e);
+            if (activeCall && activeCall.peerConnection && localStream.getVideoTracks().length > 0) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(videoTrack);
             }
         }
 
