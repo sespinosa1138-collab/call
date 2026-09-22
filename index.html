@@ -247,7 +247,7 @@
 
         let currentFacingMode = "user";
         let isMicMuted = false;
-        let isCamOff = false; // Cámara activa por defecto al iniciar
+        let isCamOff = false;
 
         let callSeconds = 0;
         let timerInterval = null;
@@ -255,6 +255,10 @@
         let availableVoices = [];
         let isRecognizing = false;
         let lastProcessedText = "";
+
+        // Control de acumulación de oraciones largas y pausas
+        let silenceTimer = null;
+        let currentAccumulatedSpeech = "";
 
         function loadVoices() {
             if ('speechSynthesis' in window) {
@@ -550,7 +554,7 @@
             badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotBg}"></span><span>${text}</span>`;
         }
 
-        /* RECONOCIMIENTO DE VOZ OPTIMIZADO PARA MÓVILES */
+        /* RECONOCIMIENTO DE VOZ ADAPTADO A FRASES CORTAS Y DISCURSOS LARGOS */
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -574,25 +578,31 @@
             };
 
             speechRecognizer.onresult = (event) => {
-                let currentText = "";
-                let isFinal = false;
+                let interimText = "";
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    currentText += event.results[i][0].transcript;
+                    const transcript = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        isFinal = true;
+                        currentAccumulatedSpeech += " " + transcript;
+                    } else {
+                        interimText += transcript;
                     }
                 }
 
-                currentText = currentText.trim();
+                const fullSpokenText = (currentAccumulatedSpeech + " " + interimText).trim();
 
-                if (currentText.length > 0) {
-                    document.getElementById("originalSpeechText").textContent = `Escuchando: ${currentText}`;
+                if (fullSpokenText.length > 0) {
+                    document.getElementById("originalSpeechText").textContent = `Escuchando: ${fullSpokenText}`;
 
-                    if ((isFinal || currentText.length > 15) && currentText !== lastProcessedText) {
-                        lastProcessedText = currentText;
-                        sendSpeechForTranslation(currentText);
-                    }
+                    // Temporizador de silencio: espera una pausa de 1.2 segundos en discursos/canciones para traducir la oración completa
+                    clearTimeout(silenceTimer);
+                    silenceTimer = setTimeout(() => {
+                        if (fullSpokenText.length > 0 && fullSpokenText !== lastProcessedText) {
+                            lastProcessedText = fullSpokenText;
+                            currentAccumulatedSpeech = "";
+                            sendSpeechForTranslation(fullSpokenText);
+                        }
+                    }, 1200);
                 }
             };
 
@@ -609,8 +619,17 @@
 
             speechRecognizer.onend = () => {
                 isRecognizing = false;
+                
+                // Si la sesión terminó y había texto acumulado pendiente, se procesa de inmediato
+                if (currentAccumulatedSpeech.trim().length > 0 && currentAccumulatedSpeech.trim() !== lastProcessedText) {
+                    let pendingText = currentAccumulatedSpeech.trim();
+                    lastProcessedText = pendingText;
+                    currentAccumulatedSpeech = "";
+                    sendSpeechForTranslation(pendingText);
+                }
+
                 if (!isMicMuted) {
-                    setTimeout(() => { safeStartSTT(); }, 500);
+                    setTimeout(() => { safeStartSTT(); }, 400);
                 }
             };
 
@@ -650,8 +669,8 @@
 
         function detectLanguage(text) {
             const lower = text.toLowerCase();
-            if (/(hola|gracias|necesito|quiero|puedo|donde|como|estoy|usted|mañana|ayuda|buenas)/.test(lower)) return "es";
-            if (/(hello|hi|thanks|thank|need|want|where|how|you|help|please|good)/.test(lower)) return "en";
+            if (/(hola|gracias|necesito|quiero|puedo|donde|como|estoy|usted|mañana|ayuda|buenas|que|por|para|con)/.test(lower)) return "es";
+            if (/(hello|hi|thanks|thank|need|want|where|how|you|help|please|good|what|for|with)/.test(lower)) return "en";
             if (/(bonjour|merci|comment|vous|aide|oui|non)/.test(lower)) return "fr";
             if (/(ola|obrigado|voce|preciso|ajuda)/.test(lower)) return "pt";
             if (/(hallo|danke|bitte|hilfe|wie)/.test(lower)) return "de";
@@ -677,8 +696,11 @@
                 let gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
                 let res = await fetch(gUrl);
                 let json = await res.json();
-                if (json && json[0] && json[0][0] && json[0][0][0]) {
-                    return json[0][0][0];
+                
+                // Procesamiento de oraciones largas / párrafos completos
+                if (json && json[0] && Array.isArray(json[0])) {
+                    let fullTranslation = json[0].map(item => item[0]).filter(Boolean).join(" ");
+                    if (fullTranslation.trim().length > 0) return fullTranslation.trim();
                 }
             } catch (e1) {}
 
@@ -706,23 +728,31 @@
             if (!('speechSynthesis' in window) || !text) return;
 
             window.speechSynthesis.cancel();
-            let utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang === "es" ? "es-ES" : (lang === "en" ? "en-US" : lang);
+            
+            const targetLang = lang === "es" ? "es-ES" : (lang === "en" ? "en-US" : lang);
 
             if (availableVoices.length === 0) {
                 availableVoices = window.speechSynthesis.getVoices();
             }
 
             let matchingVoice = availableVoices.find(v => v.lang.toLowerCase().startsWith(lang));
-            if (matchingVoice) {
-                utterance.voice = matchingVoice;
-            }
 
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
+            // Para discursos o canciones largas, dividimos por oraciones para mantener la fluidez sin cortes
+            const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
 
-            window.speechSynthesis.speak(utterance);
+            sentences.forEach(sentence => {
+                const cleanSentence = sentence.trim();
+                if (cleanSentence.length === 0) return;
+
+                let utterance = new SpeechSynthesisUtterance(cleanSentence);
+                utterance.lang = targetLang;
+                if (matchingVoice) utterance.voice = matchingVoice;
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+
+                window.speechSynthesis.speak(utterance);
+            });
         }
 
         function toggleMicrophone() {
