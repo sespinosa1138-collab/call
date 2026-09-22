@@ -91,7 +91,7 @@
 
                 <div>
                     <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                        Tu Idioma (Al que deseas escuchar/leer)
+                        Tu Idioma (El idioma que tú hablas)
                     </label>
                     <div class="relative">
                         <select id="selectTargetLang" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white appearance-none focus:outline-none focus:border-pink-500 transition pr-10">
@@ -176,8 +176,8 @@
         <!-- AREA DE VIDEO -->
         <div class="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
             
-            <!-- Video Remoto -->
-            <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+            <!-- Video Remoto (Silenciado intencionalmente en audio WebRTC directo para que no tape la traducción) -->
+            <video id="remoteVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
 
             <!-- Fallback cuando no hay video remoto -->
             <div id="remoteVideoFallback" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-b from-gray-900 via-gray-950 to-black z-0">
@@ -207,21 +207,21 @@
                         <div class="flex items-center space-x-1.5">
                             <span class="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span>
                             <span id="subtitleHeader" class="text-[10px] sm:text-xs font-bold tracking-wider text-pink-400 uppercase">
-                                SUBTÍTULOS EN VIVO
+                                TRADUCCIÓN EN TIEMPO REAL
                             </span>
                         </div>
                         <span id="detectedLangTag" class="text-[9px] font-mono text-gray-400 bg-white/10 px-1.5 py-0.5 rounded">
-                            Traducción Activa
+                            Voz e Idioma Activos
                         </span>
                     </div>
 
                     <p id="originalSpeechText" class="text-[11px] text-gray-400 italic min-h-[1.2rem] truncate">
-                        Escuchando audio...
+                        Escuchando voz...
                     </p>
 
                     <div class="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/10 mt-1">
                         <p id="translatedSubtitleText" class="text-sm sm:text-base font-semibold text-white leading-snug subtitle-fade">
-                            Lo que hable la otra persona se traducirá en tiempo real y aparecerá aquí.
+                            El texto traducido y la voz traducida sonarán automáticamente aquí.
                         </p>
                     </div>
                 </div>
@@ -319,7 +319,7 @@
         }
 
         /* ==========================================================================
-           ACCESO A MEDIOS (CÁMARA Y MICRÓFONO CORREGIDO)
+           ACCESO A MEDIOS
            ========================================================================== */
         async function startAppCall() {
             const nameInput = document.getElementById('inputUsername').value.trim();
@@ -333,6 +333,12 @@
             userConfig.roomId = roomInput;
             userConfig.targetLang = targetLang;
 
+            // Desbloquear motor de audio/voz de la ventana
+            if ('speechSynthesis' in window) {
+                const unlockAudio = new SpeechSynthesisUtterance('');
+                window.speechSynthesis.speak(unlockAudio);
+            }
+
             document.getElementById('setupModal').classList.add('hidden');
 
             try {
@@ -342,7 +348,7 @@
                 startCallTimer();
             } catch (err) {
                 console.error('Error al inicializar cámara/micrófono:', err);
-                alert('No se pudo acceder a la cámara o micrófono. Asegúrate de dar los permisos correspondientes.');
+                alert('No se pudo acceder a la cámara o micrófono. Asegúrate de otorgar los permisos.');
                 document.getElementById('setupModal').classList.remove('hidden');
             }
         }
@@ -352,7 +358,6 @@
                 localStream.getTracks().forEach(track => track.stop());
             }
 
-            // Restricciones flexibles para evitar el error NotReadableError tanto en PC como en móvil
             const constraints = {
                 audio: { echoCancellation: true, noiseSuppression: true },
                 video: {
@@ -374,7 +379,6 @@
         function initPeerJS() {
             const cleanRoom = userConfig.roomId.replace(/[^A-Z0-9_-]/gi, '');
             
-            // Definición explícita de IDs para evitar colisiones
             const hostPeerId = `ROOM-${cleanRoom}-HOST`;
             const clientPeerId = `ROOM-${cleanRoom}-CLIENT`;
 
@@ -412,21 +416,19 @@
             });
 
             peer.on('error', (err) => {
-                console.warn('PeerJS Error/Aviso:', err.type);
+                console.warn('PeerJS Aviso/Error:', err.type);
                 if (err.type === 'unavailable-id') {
-                    alert('El código de sala ya está en uso o la sala ya ha sido creada. Intenta unirte o usa otro código.');
+                    alert('El código de sala ya está en uso. Intenta unirte o usa otro código.');
                 }
             });
         }
 
         function connectToPeer(targetId) {
-            // Conexión de Datos
             const conn = peer.connect(targetId, {
                 metadata: { name: userConfig.name, targetLang: userConfig.targetLang }
             });
             setupDataChannel(conn);
 
-            // Conexión de Video
             const call = peer.call(targetId, localStream, {
                 metadata: { name: userConfig.name }
             });
@@ -446,7 +448,6 @@
             dataConnection.on('open', () => {
                 updateStatusBadge('En Línea', 'bg-emerald-500', 'text-emerald-400');
                 
-                // Intercambiar información de usuario
                 dataConnection.send({
                     type: 'META',
                     name: userConfig.name,
@@ -461,7 +462,7 @@
                 }
 
                 if (data.type === 'SPEECH_TEXT') {
-                    await processIncomingSpeech(data.text);
+                    await processIncomingSpeech(data.text, data.sourceLang);
                 }
             });
 
@@ -470,7 +471,14 @@
 
         function attachRemoteStream(remoteStream) {
             const remoteVideo = document.getElementById('remoteVideo');
+            
+            // Silenciamos las pistas de audio nativas directas para evitar que su voz en idioma original opaque o tape la traducción hablada
+            remoteStream.getAudioTracks().forEach(track => {
+                track.enabled = false;
+            });
+
             remoteVideo.srcObject = remoteStream;
+            remoteVideo.muted = true; // Refuerzo de silenciado para audio directo
             document.getElementById('remoteVideoFallback').classList.add('hidden');
             updateStatusBadge('Llamada Conectada', 'bg-emerald-500', 'text-emerald-400');
         }
@@ -488,36 +496,34 @@
         }
 
         /* ==========================================================================
-           RECONOCIMIENTO DE VOZ Y TRADUCCIÓN
+           RECONOCIMIENTO Y REPRODUCCIÓN TRADUCIDA
            ========================================================================== */
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
             if (!SpeechRecognition) {
-                document.getElementById('originalSpeechText').textContent = 'Tu navegador no soporta SpeechRecognition.';
+                document.getElementById('originalSpeechText').textContent = 'Navegador sin soporte de STT.';
                 return;
             }
 
             speechRecognizer = new SpeechRecognition();
             speechRecognizer.continuous = true;
             speechRecognizer.interimResults = true;
+            speechRecognizer.lang = userConfig.targetLang === 'es' ? 'es-ES' : 'en-US';
 
             speechRecognizer.onresult = (event) => {
-                if (isSynthesizingSpeech) return; // Evitar capturar la voz traducida que sale de la bocina
+                if (isSynthesizingSpeech) return;
 
-                let finalTranscript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    }
-                }
-
-                if (finalTranscript.trim().length > 0) {
-                    if (dataConnection && dataConnection.open) {
-                        dataConnection.send({
-                            type: 'SPEECH_TEXT',
-                            text: finalTranscript.trim()
-                        });
+                        const finalTranscript = event.results[i][0].transcript.trim();
+                        if (finalTranscript.length > 0 && dataConnection && dataConnection.open) {
+                            dataConnection.send({
+                                type: 'SPEECH_TEXT',
+                                text: finalTranscript,
+                                sourceLang: userConfig.targetLang
+                            });
+                        }
                     }
                 }
             };
@@ -533,20 +539,20 @@
             try { speechRecognizer.start(); } catch(e){}
         }
 
-        async function processIncomingSpeech(speechText) {
-            document.getElementById('originalSpeechText').textContent = `"${speechText}"`;
+        async function processIncomingSpeech(speechText, sourceLang) {
+            document.getElementById('originalSpeechText').textContent = `Original: "${speechText}"`;
 
-            // Traducir texto al idioma local elegido
+            // Traducir del idioma emisor al idioma local del usuario
             const translatedText = await translateText(speechText, userConfig.targetLang);
 
-            // Mostrar en pantalla
+            // Mostrar en pantalla los subtítulos
             const subtitleEl = document.getElementById('translatedSubtitleText');
             subtitleEl.textContent = translatedText;
             subtitleEl.classList.remove('subtitle-fade');
             void subtitleEl.offsetWidth;
             subtitleEl.classList.add('subtitle-fade');
 
-            // Reproducir por voz traducida
+            // REPRODUCIR LA TRADUCCIÓN AUTOMÁTICA EN VOZ
             speakText(translatedText, userConfig.targetLang);
         }
 
@@ -568,18 +574,26 @@
         function speakText(text, lang) {
             if (!('speechSynthesis' in window)) return;
 
-            window.speechSynthesis.cancel();
+            window.speechSynthesis.cancel(); // Detener audios anteriores pendientes
 
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang;
+            utterance.lang = lang === 'es' ? 'es-ES' : 'en-US';
             utterance.rate = 1.0;
+            utterance.volume = 1.0;
 
             utterance.onstart = () => {
                 isSynthesizingSpeech = true;
-                if (speechRecognizer) speechRecognizer.stop();
+                if (speechRecognizer) try { speechRecognizer.stop(); } catch(e){}
             };
 
             utterance.onend = () => {
+                isSynthesizingSpeech = false;
+                if (!isMicMuted && speechRecognizer) {
+                    try { speechRecognizer.start(); } catch(e){}
+                }
+            };
+
+            utterance.onerror = () => {
                 isSynthesizingSpeech = false;
                 if (!isMicMuted && speechRecognizer) {
                     try { speechRecognizer.start(); } catch(e){}
@@ -603,7 +617,7 @@
                 if (isMicMuted) {
                     btn.classList.add('bg-red-600');
                     btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
-                    if (speechRecognizer) speechRecognizer.stop();
+                    if (speechRecognizer) try { speechRecognizer.stop(); } catch(e){}
                 } else {
                     btn.classList.remove('bg-red-600');
                     btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
@@ -674,7 +688,7 @@
         function hangupCall() {
             if (confirm('¿Deseas finalizar la llamada?')) {
                 if (localStream) localStream.getTracks().forEach(t => t.stop());
-                if (speechRecognizer) speechRecognizer.stop();
+                if (speechRecognizer) try { speechRecognizer.stop(); } catch(e){}
                 if (peer) peer.destroy();
                 clearInterval(timerInterval);
                 location.reload();
