@@ -221,8 +221,8 @@
                 <i class="fa-solid fa-microphone"></i>
             </button>
 
-            <button id="btnCamera" onclick="toggleCamera()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base bg-red-600">
-                <i class="fa-solid fa-video-slash"></i>
+            <button id="btnCamera" onclick="toggleCamera()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base bg-emerald-600">
+                <i class="fa-solid fa-video"></i>
             </button>
 
             <button id="btnSwitchCam" onclick="switchCameraFacing()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base">
@@ -247,7 +247,7 @@
 
         let currentFacingMode = "user";
         let isMicMuted = false;
-        let isCamOff = true;
+        let isCamOff = false; // Cámara activa por defecto al iniciar
 
         let callSeconds = 0;
         let timerInterval = null;
@@ -322,7 +322,6 @@
 
             unlockSpeech();
             
-            // SOLICITAR PERMISOS EXPLÍCITOS DE MICRÓFONO/CÁMARA AL TOCAR EL BOTÓN
             let mediaSuccess = await initMediaStream();
             if (!mediaSuccess) return;
 
@@ -340,20 +339,6 @@
             window.speechSynthesis.speak(test);
         }
 
-        /* IMPORTANTE: nunca pedimos "audio" en getUserMedia a propósito.
-           La voz real NUNCA se transmite por WebRTC (se traduce y se
-           reproduce con speechSynthesis en el otro lado), así que capturar
-           el micrófono aquí es innecesario y, en Android/iOS, lo bloquea en
-           modo exclusivo (VOICE_COMMUNICATION), impidiendo que el Web
-           Speech API (SpeechRecognition) pueda escuchar al mismo tiempo.
-           En escritorio esto no pasa porque el SO permite varios
-           consumidores de audio a la vez; por eso "en compu sí funciona y
-           en el móvil no". */
-
-        // Intenta obtener la cámara probando, en orden, restricciones cada
-        // vez más simples. Devuelve el MediaStream conseguido o null si el
-        // dispositivo no pudo abrir la cámara en ningún intento (por
-        // ejemplo, porque otra app la tiene ocupada).
         async function acquireCameraStream(facing) {
             const attempts = [
                 { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } },
@@ -366,15 +351,10 @@
                     return await navigator.mediaDevices.getUserMedia({ audio: false, video: attempts[i] });
                 } catch (err) {
                     console.warn(`Fallo cámara (intento ${i + 1}/${attempts.length}):`, err.name || err);
-                    // Pequeña pausa: en varios móviles la cámara queda
-                    // "ocupada" un instante tras liberarse de un intento
-                    // anterior (NotReadableError transitorio).
                     await new Promise(r => setTimeout(r, 350));
                 }
             }
 
-            // Último recurso: enumerar cámaras y pedir una por su deviceId
-            // explícito, evitando cualquier constraint que pueda chocar.
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const cams = devices.filter(d => d.kind === "videoinput");
@@ -391,8 +371,6 @@
             return null;
         }
 
-        // Refleja en la UI (video local + placeholder "Cam Off") el estado
-        // real de localStream. Se usa tras cualquier cambio de cámara.
         function updateLocalVideoUI() {
             const video = document.getElementById("localVideo");
             const localFallback = document.getElementById("localVideoFallback");
@@ -402,6 +380,7 @@
             if (hasVideo && !isCamOff) {
                 video.srcObject = localStream;
                 video.classList.remove("hidden");
+                video.play().catch(e => console.warn("Autoplay local video warning:", e));
                 if (localFallback) localFallback.classList.add("hidden");
             } else {
                 video.classList.add("hidden");
@@ -409,12 +388,35 @@
             }
         }
 
-        // Reemplaza la pista de video que se está enviando por WebRTC (si
-        // hay una llamada activa), sin necesidad de renegociar la conexión.
+        function updateCameraButtonUI() {
+            const btn = document.getElementById('btnCamera');
+            if (!btn) return;
+            if (isCamOff) {
+                btn.classList.add('bg-red-600');
+                btn.classList.remove('bg-emerald-600');
+                btn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
+            } else {
+                btn.classList.remove('bg-red-600');
+                btn.classList.add('bg-emerald-600');
+                btn.innerHTML = '<i class="fa-solid fa-video"></i>';
+            }
+        }
+
         function replaceOutgoingVideoTrack(videoTrack) {
-            if (activeCall && activeCall.peerConnection && videoTrack) {
-                const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === "video");
-                if (sender) sender.replaceTrack(videoTrack);
+            if (activeCall && activeCall.peerConnection) {
+                const senders = activeCall.peerConnection.getSenders();
+                const sender = senders.find(s => s.track && s.track.kind === "video");
+                if (sender) {
+                    sender.replaceTrack(videoTrack || null).catch(err => {
+                        console.warn("Error al reemplazar pista de video en WebRTC:", err);
+                    });
+                } else if (videoTrack && activeCall.peerConnection.addTrack) {
+                    try {
+                        activeCall.peerConnection.addTrack(videoTrack, localStream);
+                    } catch (e) {
+                        console.warn("No se pudo añadir la pista de vídeo dinámicamente:", e);
+                    }
+                }
             }
         }
 
@@ -429,19 +431,18 @@
 
             if (camStream) {
                 localStream = camStream;
+                isCamOff = false;
             } else {
-                console.warn("No se pudo iniciar ninguna cámara; continuando solo con traducción de voz.");
+                console.warn("No se pudo iniciar la cámara; continuando en modo solo traducción de voz.");
                 localStream = new MediaStream();
                 isCamOff = true;
             }
 
             localStream.getVideoTracks().forEach(track => { track.enabled = !isCamOff; });
-            peerStreamForTransmission = localStream.clone();
+            peerStreamForTransmission = localStream;
 
+            updateCameraButtonUI();
             updateLocalVideoUI();
-            // No bloqueamos el inicio de la llamada por fallos de cámara:
-            // así, al menos, el reconocimiento de voz y la traducción
-            // seguirán funcionando aunque el video no esté disponible.
             return true;
         }
 
@@ -529,7 +530,10 @@
 
         function attachRemoteStream(stream) {
             const remoteVideo = document.getElementById("remoteVideo");
-            remoteVideo.srcObject = stream;
+            if (remoteVideo) {
+                remoteVideo.srcObject = stream;
+                remoteVideo.play().catch(e => console.warn("Autoplay remote video warning:", e));
+            }
             document.getElementById("remoteVideoFallback").classList.add("hidden");
             updateStatusBadge("Llamada Conectada", "bg-emerald-500", "text-emerald-400");
         }
@@ -585,7 +589,6 @@
                 if (currentText.length > 0) {
                     document.getElementById("originalSpeechText").textContent = `Escuchando: ${currentText}`;
 
-                    // Procesar si es final o si ha alcanzado una longitud mínima sin repetirse
                     if ((isFinal || currentText.length > 15) && currentText !== lastProcessedText) {
                         lastProcessedText = currentText;
                         sendSpeechForTranslation(currentText);
@@ -597,7 +600,6 @@
                 console.warn("Aviso STT:", event.error);
                 isRecognizing = false;
 
-                // EVITAR BUCLE INFINITO EN CASO DE DENEGACIÓN O ERROR DE RED EN MÓVILES
                 if (event.error === 'not-allowed') {
                     document.getElementById("originalSpeechText").textContent = "Permiso de micrófono denegado para reconocimiento.";
                 } else if (event.error === 'network') {
@@ -622,9 +624,6 @@
             try {
                 speechRecognizer.start();
             } catch (e) {
-                // "already started" puede ocurrir por una carrera entre
-                // onend/onerror; lo ignoramos porque el propio motor ya
-                // está (o quedará) activo.
                 console.warn("Error al iniciar STT:", e);
             } finally {
                 setTimeout(() => { sttStarting = false; }, 300);
@@ -747,20 +746,6 @@
             }
         }
 
-        function updateCameraButtonUI() {
-            const btn = document.getElementById('btnCamera');
-            if (!btn) return;
-            if (isCamOff) {
-                btn.classList.add('bg-red-600');
-                btn.classList.remove('bg-emerald-600');
-                btn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
-            } else {
-                btn.classList.remove('bg-red-600');
-                btn.classList.add('bg-emerald-600');
-                btn.innerHTML = '<i class="fa-solid fa-video"></i>';
-            }
-        }
-
         async function toggleCamera() {
             if (!localStream) return;
             const btn = document.getElementById('btnCamera');
@@ -769,37 +754,33 @@
             if (turningOn) {
                 let track = localStream.getVideoTracks()[0];
 
-                // Si no hay pista de video (falló al iniciar la llamada),
-                // reintentamos abrir la cámara de verdad en este momento:
-                // es común que la cámara estuviera ocupada al cargar la
-                // página y ya esté libre unos segundos después.
                 if (!track) {
                     btn.disabled = true;
                     const originalIcon = btn.innerHTML;
                     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
                     const newStream = await acquireCameraStream(currentFacingMode);
-
                     btn.disabled = false;
 
                     if (!newStream) {
                         btn.innerHTML = originalIcon;
-                        alert('No se pudo activar la cámara. Puede que otra app la esté usando; ciérrala e inténtalo de nuevo.');
+                        alert('No se pudo activar la cámara. Verifica que otra aplicación no la esté utilizando.');
                         return;
                     }
 
                     localStream = newStream;
                     track = localStream.getVideoTracks()[0];
-                    peerStreamForTransmission = localStream.clone();
-                    replaceOutgoingVideoTrack(track);
+                    peerStreamForTransmission = localStream;
                 }
 
-                track.enabled = true;
+                if (track) track.enabled = true;
                 isCamOff = false;
+                replaceOutgoingVideoTrack(track);
             } else {
                 const track = localStream.getVideoTracks()[0];
                 if (track) track.enabled = false;
                 isCamOff = true;
+                replaceOutgoingVideoTrack(track);
             }
 
             updateCameraButtonUI();
@@ -810,7 +791,9 @@
             const btnSwitch = document.getElementById('btnSwitchCam');
             currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
             const localVideo = document.getElementById('localVideo');
-            localVideo.classList.toggle('mirror-video', currentFacingMode === 'user');
+            if (localVideo) {
+                localVideo.classList.toggle('mirror-video', currentFacingMode === 'user');
+            }
 
             if (btnSwitch) btnSwitch.disabled = true;
             const newStream = await acquireCameraStream(currentFacingMode);
@@ -823,10 +806,13 @@
 
             if (localStream) localStream.getTracks().forEach(t => t.stop());
             localStream = newStream;
-            localStream.getVideoTracks().forEach(track => { track.enabled = !isCamOff; });
-            peerStreamForTransmission = localStream.clone();
+            isCamOff = false;
+            localStream.getVideoTracks().forEach(track => { track.enabled = true; });
+            peerStreamForTransmission = localStream;
 
-            replaceOutgoingVideoTrack(localStream.getVideoTracks()[0]);
+            const newTrack = localStream.getVideoTracks()[0];
+            replaceOutgoingVideoTrack(newTrack);
+            updateCameraButtonUI();
             updateLocalVideoUI();
         }
 
