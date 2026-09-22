@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Live Call Translator - WebRTC</title>
     
-    <!-- Eruda: Consola DevTools (F12) flotante para celulares -->
+    <!-- Eruda: Consola DevTools flotante para móviles -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
 
@@ -15,7 +15,7 @@
     <!-- FontAwesome Icons CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- PeerJS CDN for WebRTC Video/Audio P2P -->
+    <!-- PeerJS CDN -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <!-- Google Fonts: Inter -->
@@ -138,7 +138,7 @@
             </button>
 
             <div class="p-3 bg-gray-900/80 border border-gray-800 rounded-xl text-[11px] text-gray-400 leading-relaxed text-center">
-                <span>Traducción en tiempo real aislada: la otra persona solo escuchará la voz traducida.</span>
+                <span>Traducción instantánea. Al pulsar el botón se solicitarán permisos de micrófono y cámara.</span>
             </div>
         </div>
     </div>
@@ -241,7 +241,7 @@
 
     <script>
         let localStream = null;
-        let peerStreamForTransmission = null; // Stream silenciado para WebRTC
+        let peerStreamForTransmission = null;
         let peer = null;
         let activeCall = null;
         let dataConnection = null;
@@ -257,7 +257,8 @@
         let timerInterval = null;
         let speechRecognizer = null;
         let availableVoices = [];
-        let sttRetryTimer = null;
+        let isRecognizing = false;
+        let lastProcessedText = "";
 
         function loadVoices() {
             if ('speechSynthesis' in window) {
@@ -324,9 +325,13 @@
             userConfig = { name: nameInput, roomId: roomInput, targetLang: targetLang };
 
             unlockSpeech();
+            
+            // SOLICITAR PERMISOS EXPLÍCITOS DE MICRÓFONO/CÁMARA AL TOCAR EL BOTÓN
+            let mediaSuccess = await initMediaStream();
+            if (!mediaSuccess) return;
+
             document.getElementById("setupModal").classList.add("hidden");
 
-            await initMediaStream();
             initPeerJS();
             initSpeechRecognition();
             startCallTimer();
@@ -350,23 +355,18 @@
                     video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
                 });
             } catch (err1) {
+                console.warn("Fallo cámara previa, reintentando solo audio:", err1);
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 } catch (err2) {
-                    try {
-                        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                    } catch (err3) {
-                        alert("No se pudo acceder al micrófono.");
-                        return;
-                    }
+                    alert("Por favor permite el acceso al micrófono en los ajustes de tu navegador para poder traducir.");
+                    return false;
                 }
             }
 
-            // MANTENER MICRÓFONO ACTIVO LOCALMENTE PARA TRADUCCIÓN
             localStream.getAudioTracks().forEach(track => { track.enabled = true; });
             localStream.getVideoTracks().forEach(track => { track.enabled = !isCamOff; });
 
-            // CLONAR STREAM Y SILENCIAR AUDIO ENVIADO A LA OTRA PERSONA (Elimina la voz original en la llamada)
             peerStreamForTransmission = localStream.clone();
             peerStreamForTransmission.getAudioTracks().forEach(track => { track.enabled = false; });
 
@@ -374,6 +374,7 @@
             if (video && localStream.getVideoTracks().length > 0) {
                 video.srcObject = localStream;
             }
+            return true;
         }
 
         function initPeerJS() {
@@ -471,17 +472,17 @@
             badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotBg}"></span><span>${text}</span>`;
         }
 
-        /* RECONOCIMIENTO DE VOZ ROBUSTO PARA MÓVILES (Con auto-reconexión instantánea) */
+        /* RECONOCIMIENTO DE VOZ OPTIMIZADO PARA MÓVILES */
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
             if (!SpeechRecognition) {
-                document.getElementById("originalSpeechText").textContent = "Navegador no soporta traducción de voz.";
+                document.getElementById("originalSpeechText").textContent = "El navegador no soporta reconocimiento de voz.";
                 return;
             }
 
             if (speechRecognizer) {
-                try { speechRecognizer.abort(); } catch(e){}
+                try { speechRecognizer.stop(); } catch(e){}
             }
 
             speechRecognizer = new SpeechRecognition();
@@ -489,42 +490,64 @@
             speechRecognizer.continuous = true;
             speechRecognizer.interimResults = true;
 
+            speechRecognizer.onstart = () => {
+                isRecognizing = true;
+                document.getElementById("originalSpeechText").textContent = "Escuchando tu voz...";
+            };
+
             speechRecognizer.onresult = (event) => {
-                let text = "";
+                let currentText = "";
+                let isFinal = false;
+
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    text += event.results[i][0].transcript;
+                    currentText += event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        isFinal = true;
+                    }
                 }
 
-                if (text.trim().length > 1) {
-                    document.getElementById("originalSpeechText").textContent = `Escuchando: ${text}`;
-                    let isFinal = event.results[event.results.length - 1].isFinal;
-                    if (isFinal) {
-                        sendSpeechForTranslation(text.trim());
+                currentText = currentText.trim();
+
+                if (currentText.length > 0) {
+                    document.getElementById("originalSpeechText").textContent = `Escuchando: ${currentText}`;
+
+                    // Procesar si es final o si ha alcanzado una longitud mínima sin repetirse
+                    if ((isFinal || currentText.length > 15) && currentText !== lastProcessedText) {
+                        lastProcessedText = currentText;
+                        sendSpeechForTranslation(currentText);
                     }
                 }
             };
 
-            speechRecognizer.onerror = (error) => {
-                console.warn("Aviso STT:", error.error);
-                scheduleSTTRestart();
+            speechRecognizer.onerror = (event) => {
+                console.warn("Aviso STT:", event.error);
+                isRecognizing = false;
+
+                // EVITAR BUCLE INFINITO EN CASO DE DENEGACIÓN O ERROR DE RED EN MÓVILES
+                if (event.error === 'not-allowed') {
+                    document.getElementById("originalSpeechText").textContent = "Permiso de micrófono denegado para reconocimiento.";
+                } else if (event.error === 'network') {
+                    setTimeout(() => { safeStartSTT(); }, 2000);
+                }
             };
 
             speechRecognizer.onend = () => {
+                isRecognizing = false;
                 if (!isMicMuted) {
-                    scheduleSTTRestart();
+                    setTimeout(() => { safeStartSTT(); }, 500);
                 }
             };
 
-            try { speechRecognizer.start(); } catch(e){}
+            safeStartSTT();
         }
 
-        function scheduleSTTRestart() {
-            if (sttRetryTimer) clearTimeout(sttRetryTimer);
-            sttRetryTimer = setTimeout(() => {
-                if (!isMicMuted) {
-                    try { speechRecognizer.start(); } catch(e){}
-                }
-            }, 300);
+        function safeStartSTT() {
+            if (!speechRecognizer || isMicMuted || isRecognizing) return;
+            try {
+                speechRecognizer.start();
+            } catch (e) {
+                console.warn("Error al iniciar STT:", e);
+            }
         }
 
         async function sendSpeechForTranslation(text) {
