@@ -349,30 +349,54 @@
                 localStream.getTracks().forEach(track => track.stop());
             }
 
+            // IMPORTANTE: no pedimos "audio" aquí a propósito.
+            // La voz real NUNCA se transmite (se traduce y se reproduce con
+            // speechSynthesis en el otro lado), así que capturar el micrófono
+            // con getUserMedia es innecesario y, en Android/iOS, bloquea el
+            // micrófono en modo exclusivo (VOICE_COMMUNICATION) impidiendo
+            // que el Web Speech API (SpeechRecognition) pueda escuchar al
+            // mismo tiempo. En escritorio esto no pasa porque el SO permite
+            // varios consumidores de audio a la vez, por eso "en compu sí
+            // funciona y en el móvil no".
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({
-                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-                    video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
+                    audio: false,
+                    video: { facingMode: { ideal: currentFacingMode }, width: { ideal: 640 }, height: { ideal: 480 } }
                 });
             } catch (err1) {
-                console.warn("Fallo cámara previa, reintentando solo audio:", err1);
+                console.warn("Fallo cámara (intento 1), reintentando con restricciones más simples:", err1);
                 try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    // Reintento con restricciones más laxas: algunos móviles
+                    // lanzan NotReadableError/OverconstrainedError si la cámara
+                    // sigue "ocupada" por un intento anterior o por una
+                    // resolución/facingMode demasiado estricta.
+                    await new Promise(r => setTimeout(r, 300));
+                    localStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
                 } catch (err2) {
-                    alert("Por favor permite el acceso al micrófono en los ajustes de tu navegador para poder traducir.");
-                    return false;
+                    console.warn("Fallo cámara (intento 2), continuando solo con traducción de voz:", err2);
+                    // No bloqueamos la llamada por la cámara: seguimos sin
+                    // video para que, al menos, el reconocimiento de voz y
+                    // la traducción funcionen.
+                    localStream = new MediaStream();
+                    isCamOff = true;
                 }
             }
 
-            localStream.getAudioTracks().forEach(track => { track.enabled = true; });
             localStream.getVideoTracks().forEach(track => { track.enabled = !isCamOff; });
 
             peerStreamForTransmission = localStream.clone();
-            peerStreamForTransmission.getAudioTracks().forEach(track => { track.enabled = false; });
 
             const video = document.getElementById("localVideo");
-            if (video && localStream.getVideoTracks().length > 0) {
-                video.srcObject = localStream;
+            const localFallback = document.getElementById('localVideoFallback');
+            if (video) {
+                if (localStream.getVideoTracks().length > 0 && !isCamOff) {
+                    video.srcObject = localStream;
+                    video.classList.remove('hidden');
+                    if (localFallback) localFallback.classList.add('hidden');
+                } else {
+                    video.classList.add('hidden');
+                    if (localFallback) localFallback.classList.remove('hidden');
+                }
             }
             return true;
         }
@@ -541,12 +565,19 @@
             safeStartSTT();
         }
 
+        let sttStarting = false;
         function safeStartSTT() {
-            if (!speechRecognizer || isMicMuted || isRecognizing) return;
+            if (!speechRecognizer || isMicMuted || isRecognizing || sttStarting) return;
+            sttStarting = true;
             try {
                 speechRecognizer.start();
             } catch (e) {
+                // "already started" puede ocurrir por una carrera entre
+                // onend/onerror; lo ignoramos porque el propio motor ya
+                // está (o quedará) activo.
                 console.warn("Error al iniciar STT:", e);
+            } finally {
+                setTimeout(() => { sttStarting = false; }, 300);
             }
         }
 
