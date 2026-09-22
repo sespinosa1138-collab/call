@@ -91,7 +91,7 @@
 
                 <div>
                     <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                        Tu Idioma (El idioma que tú hablas)
+                        Tu Idioma Base
                     </label>
                     <div class="relative">
                         <select id="selectTargetLang" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white appearance-none focus:outline-none focus:border-pink-500 transition pr-10">
@@ -139,7 +139,7 @@
             </button>
 
             <div class="p-3 bg-gray-900/80 border border-gray-800 rounded-xl text-[11px] text-gray-400 leading-relaxed text-center">
-                <span>Cámara y Micrófono inician desactivados. Actívalos en llamada cuando desees hablar.</span>
+                <span>Micrófono configurado para traducción automática. Cámara desactivada al iniciar.</span>
             </div>
         </div>
     </div>
@@ -211,12 +211,12 @@
                             </span>
                         </div>
                         <span id="detectedLangTag" class="text-[9px] font-mono text-gray-400 bg-white/10 px-1.5 py-0.5 rounded">
-                            Voz e Idioma Activos
+                            Esperando voz...
                         </span>
                     </div>
 
                     <p id="originalSpeechText" class="text-[11px] text-gray-400 italic min-h-[1.2rem] truncate">
-                        Haz clic en el micrófono para hablar...
+                        Habla naturalmente frente a la pantalla...
                     </p>
 
                     <div class="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/10 mt-1">
@@ -231,8 +231,8 @@
         <!-- BARRA DE CONTROLES INFERIOR -->
         <footer class="absolute bottom-0 left-0 right-0 z-40 pb-safe px-4 pt-3 flex items-center justify-center gap-4 sm:gap-6 pointer-events-auto bg-gradient-to-t from-black via-black/80 to-transparent">
             
-            <button id="btnMic" onclick="toggleMicrophone()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base bg-red-600">
-                <i class="fa-solid fa-microphone-slash"></i>
+            <button id="btnMic" onclick="toggleMicrophone()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base bg-emerald-600">
+                <i class="fa-solid fa-microphone"></i>
             </button>
 
             <button id="btnCamera" onclick="toggleCamera()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base bg-red-600">
@@ -252,26 +252,31 @@
 
     <script>
         /* ==========================================================================
-           ESTADO GLOBAL
+           ESTADO GLOBAL CORREGIDO
            ========================================================================== */
         let localStream = null;
         let peer = null;
         let activeCall = null;
         let dataConnection = null;
 
-        let currentMode = 'create'; // 'create' | 'join'
-        let userConfig = { name: '', targetLang: 'es', roomId: '' };
+        let currentMode = 'create';
+        let userConfig = {
+            name: "",
+            targetLang: "es",
+            roomId: ""
+        };
 
-        let currentFacingMode = 'user';
-        let isMicMuted = true; // Inicia apagado por defecto
-        let isCamOff = true;   // Inicia apagado por defecto
+        let currentFacingMode = "user";
+        // IMPORTANTE: El micrófono debe permanecer habilitado para STT continuo
+        let isMicMuted = false;
+        let isCamOff = true;
+
         let callSeconds = 0;
         let timerInterval = null;
-
         let speechRecognizer = null;
 
         /* ==========================================================================
-           INICIALIZACIÓN DE INTERFAZ Y MODOS
+           INICIO Y MODO DE LA APLICACIÓN
            ========================================================================== */
         function generateRandomRoom() {
             const randomCode = 'SALA-' + Math.floor(1000 + Math.random() * 9000);
@@ -317,243 +322,302 @@
             }
         }
 
-        /* ==========================================================================
-           ACCESO A MEDIOS Y SALA
-           ========================================================================== */
         async function startAppCall() {
-            const nameInput = document.getElementById('inputUsername').value.trim();
-            const roomInput = document.getElementById('inputRoomId').value.trim().toUpperCase();
-            const targetLang = document.getElementById('selectTargetLang').value;
+            const nameInput = document.getElementById("inputUsername").value.trim();
+            const roomInput = document.getElementById("inputRoomId").value.trim().toUpperCase();
+            const targetLang = document.getElementById("selectTargetLang").value;
 
-            if (!nameInput) { alert('Por favor, ingresa tu nombre.'); return; }
-            if (!roomInput) { alert('Por favor, ingresa un código de sala.'); return; }
+            if (!nameInput) { alert("Ingresa tu nombre"); return; }
+            if (!roomInput) { alert("Ingresa código de sala"); return; }
 
-            userConfig.name = nameInput;
-            userConfig.roomId = roomInput;
-            userConfig.targetLang = targetLang;
+            userConfig = {
+                name: nameInput,
+                roomId: roomInput,
+                targetLang: targetLang
+            };
 
-            // Desbloquear síntesis de audio para dispositivos móviles/escritorio
-            if ('speechSynthesis' in window) {
-                const unlock = new SpeechSynthesisUtterance('');
-                window.speechSynthesis.speak(unlock);
-            }
-
-            document.getElementById('setupModal').classList.add('hidden');
+            unlockSpeech();
+            document.getElementById("setupModal").classList.add("hidden");
 
             try {
                 await initMediaStream();
                 initPeerJS();
                 initSpeechRecognition();
                 startCallTimer();
-            } catch (err) {
-                console.error('Error al inicializar cámara/micrófono:', err);
-                alert('No se pudo acceder a los dispositivos multimedias.');
-                document.getElementById('setupModal').classList.remove('hidden');
+            } catch (error) {
+                console.error("Error inicializando:", error);
+                alert("No se pudo iniciar cámara/micrófono");
+                document.getElementById("setupModal").classList.remove("hidden");
             }
         }
 
+        /* ==========================================================================
+           DESBLOQUEAR SPEECH SYNTHESIS EN MÓVILES
+           ========================================================================== */
+        function unlockSpeech() {
+            if (!window.speechSynthesis) return;
+            window.speechSynthesis.getVoices();
+            let test = new SpeechSynthesisUtterance("");
+            test.volume = 0;
+            window.speechSynthesis.speak(test);
+        }
+
+        /* ==========================================================================
+           CÁMARA Y MICRÓFONO
+           ========================================================================== */
         async function initMediaStream() {
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
             }
 
-            const constraints = {
-                audio: { echoCancellation: true, noiseSuppression: true },
+            let constraints = {
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
                 video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
             };
 
-            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (error) {
+                console.warn("Reintentando acceso a cámara estándar:", error);
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            }
 
-            // Desactivar Micrófono y Cámara por defecto según tus requerimientos
-            localStream.getAudioTracks().forEach(track => track.enabled = !isMicMuted);
-            localStream.getVideoTracks().forEach(track => track.enabled = !isCamOff);
+            // Micrófono habilitado para STT
+            localStream.getAudioTracks().forEach(track => { track.enabled = true; });
+            // Cámara apagada inicialmente según preferencias
+            localStream.getVideoTracks().forEach(track => { track.enabled = false; });
 
-            const localVideo = document.getElementById('localVideo');
-            localVideo.srcObject = localStream;
+            const video = document.getElementById("localVideo");
+            video.srcObject = localStream;
         }
 
         /* ==========================================================================
-           CONEXIÓN P2P PEERJS (HOST vs CLIENT)
+           PEERJS P2P
            ========================================================================== */
         function initPeerJS() {
-            const cleanRoom = userConfig.roomId.replace(/[^A-Z0-9_-]/gi, '');
+            const cleanRoom = userConfig.roomId.replace(/[^A-Z0-9_-]/gi, "");
             const hostPeerId = `ROOM-${cleanRoom}-HOST`;
             const clientPeerId = `ROOM-${cleanRoom}-CLIENT`;
 
-            const myPeerId = (currentMode === 'create') ? hostPeerId : clientPeerId;
-            const targetPeerId = (currentMode === 'create') ? clientPeerId : hostPeerId;
+            const myPeerId = currentMode === "create" ? hostPeerId : clientPeerId;
+            const targetPeerId = currentMode === "create" ? clientPeerId : hostPeerId;
 
             peer = new Peer(myPeerId, { debug: 1 });
 
-            peer.on('open', (id) => {
-                updateStatusBadge(currentMode === 'create' ? 'Esperando Invitado...' : 'Conectando a Sala...', 'bg-amber-400', 'text-amber-400');
-
-                if (currentMode === 'join') {
+            peer.on("open", () => {
+                updateStatusBadge(currentMode === "create" ? "Esperando usuario..." : "Conectando...", "bg-amber-400", "text-amber-400");
+                if (currentMode === "join") {
                     setTimeout(() => { connectToPeer(targetPeerId); }, 1000);
                 }
             });
 
-            peer.on('call', (incomingCall) => {
-                activeCall = incomingCall;
-                incomingCall.answer(localStream);
-
-                incomingCall.on('stream', (remoteStream) => { attachRemoteStream(remoteStream); });
-                incomingCall.on('close', () => { handleRemoteDisconnect(); });
+            peer.on("call", incoming => {
+                activeCall = incoming;
+                incoming.answer(localStream);
+                incoming.on("stream", stream => { attachRemoteStream(stream); });
+                incoming.on("close", () => { handleRemoteDisconnect(); });
             });
 
-            peer.on('connection', (conn) => { setupDataChannel(conn); });
+            peer.on("connection", conn => { setupDataChannel(conn); });
 
-            peer.on('error', (err) => {
+            peer.on("error", err => {
                 if (err.type === 'unavailable-id') {
-                    alert('El código de sala ya está en uso. Intenta unirte o utiliza otro código.');
+                    alert("El código de sala ya está en uso. Prueba uniéndote a la sala.");
                 }
             });
         }
 
-        function connectToPeer(targetId) {
-            const conn = peer.connect(targetId, {
-                metadata: { name: userConfig.name, targetLang: userConfig.targetLang }
-            });
+        function connectToPeer(id) {
+            let conn = peer.connect(id);
             setupDataChannel(conn);
 
-            const call = peer.call(targetId, localStream, { metadata: { name: userConfig.name } });
-
-            if (call) {
-                activeCall = call;
-                call.on('stream', (remoteStream) => { attachRemoteStream(remoteStream); });
-                call.on('close', () => { handleRemoteDisconnect(); });
-            }
+            let call = peer.call(id, localStream);
+            activeCall = call;
+            call.on("stream", stream => { attachRemoteStream(stream); });
+            call.on("close", () => { handleRemoteDisconnect(); });
         }
 
         function setupDataChannel(conn) {
             dataConnection = conn;
 
-            dataConnection.on('open', () => {
-                updateStatusBadge('En Línea', 'bg-emerald-500', 'text-emerald-400');
-                
-                dataConnection.send({
-                    type: 'META',
+            dataConnection.on("open", () => {
+                updateStatusBadge("En Línea", "bg-emerald-500", "text-emerald-400");
+                dataConnection.send(JSON.stringify({
+                    type: "META",
                     name: userConfig.name,
                     targetLang: userConfig.targetLang
-                });
+                }));
             });
 
-            dataConnection.on('data', async (data) => {
-                if (data.type === 'META') {
-                    document.getElementById('remotePeerName').textContent = data.name || 'Usuario Remoto';
-                    document.getElementById('remoteAvatar').textContent = (data.name || 'U').charAt(0).toUpperCase();
+            dataConnection.on("data", async (raw) => {
+                let data;
+                try {
+                    data = typeof raw === "string" ? JSON.parse(raw) : raw;
+                } catch (e) {
+                    console.error("Mensaje inválido recibido:", e);
+                    return;
                 }
 
-                if (data.type === 'SPEECH_TEXT') {
+                if (data.type === "META") {
+                    document.getElementById("remotePeerName").textContent = data.name || "Usuario Remoto";
+                    document.getElementById("remoteAvatar").textContent = (data.name || "U").charAt(0).toUpperCase();
+                }
+
+                if (data.type === "SPEECH_TEXT") {
                     await processIncomingSpeech(data.text, data.sourceLang);
                 }
             });
 
-            dataConnection.on('close', () => { handleRemoteDisconnect(); });
+            dataConnection.on("close", () => { handleRemoteDisconnect(); });
         }
 
-        function attachRemoteStream(remoteStream) {
-            const remoteVideo = document.getElementById('remoteVideo');
-            remoteVideo.srcObject = remoteStream;
-            document.getElementById('remoteVideoFallback').classList.add('hidden');
-            updateStatusBadge('Llamada Conectada', 'bg-emerald-500', 'text-emerald-400');
+        function attachRemoteStream(stream) {
+            const remoteVideo = document.getElementById("remoteVideo");
+            remoteVideo.srcObject = stream;
+            document.getElementById("remoteVideoFallback").classList.add("hidden");
+            updateStatusBadge("Llamada Conectada", "bg-emerald-500", "text-emerald-400");
         }
 
         function handleRemoteDisconnect() {
-            document.getElementById('remoteVideoFallback').classList.remove('hidden');
-            document.getElementById('remotePeerName').textContent = 'Desconectado';
-            updateStatusBadge('Desconectado', 'bg-red-500', 'text-red-400');
+            document.getElementById("remoteVideoFallback").classList.remove("hidden");
+            document.getElementById("remotePeerName").textContent = "Desconectado";
+            updateStatusBadge("Desconectado", "bg-red-500", "text-red-400");
         }
 
         function updateStatusBadge(text, dotBg, textColor) {
-            const badge = document.getElementById('statusBadge');
+            const badge = document.getElementById("statusBadge");
             badge.className = `glass-pill px-2.5 py-1 rounded-full text-[10px] font-medium flex items-center gap-1 ${textColor}`;
             badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotBg}"></span><span>${text}</span>`;
         }
 
         /* ==========================================================================
-           RECONOCIMIENTO DE VOZ Y SÍNTESIS DE TRADUCCIÓN
+           RECONOCIMIENTO DE VOZ + TRADUCCIÓN + VOZ
            ========================================================================== */
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
             if (!SpeechRecognition) {
-                document.getElementById('originalSpeechText').textContent = 'Tu navegador no soporta SpeechRecognition.';
+                document.getElementById("originalSpeechText").textContent = "Este navegador no soporta reconocimiento de voz";
                 return;
             }
 
             speechRecognizer = new SpeechRecognition();
+            speechRecognizer.lang = "es-ES";
             speechRecognizer.continuous = true;
-            speechRecognizer.interimResults = false;
-            speechRecognizer.lang = userConfig.targetLang === 'es' ? 'es-ES' : 'en-US';
+            speechRecognizer.interimResults = true;
+            speechRecognizer.maxAlternatives = 3;
 
             speechRecognizer.onresult = (event) => {
-                if (isMicMuted) return;
+                let text = "";
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    text += event.results[i][0].transcript;
+                }
 
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        const finalTranscript = event.results[i][0].transcript.trim();
-                        if (finalTranscript.length > 0 && dataConnection && dataConnection.open) {
-                            
-                            document.getElementById('originalSpeechText').textContent = `Dijiste: "${finalTranscript}"`;
-
-                            dataConnection.send({
-                                type: 'SPEECH_TEXT',
-                                text: finalTranscript,
-                                sourceLang: userConfig.targetLang
-                            });
-                        }
+                if (text.length > 2) {
+                    document.getElementById("originalSpeechText").textContent = `Escuchando: ${text}`;
+                    
+                    let isFinal = event.results[event.results.length - 1].isFinal;
+                    if (isFinal) {
+                        sendSpeechForTranslation(text.trim());
                     }
                 }
             };
+
+            speechRecognizer.onerror = (error) => { console.warn("Error STT:", error); };
 
             speechRecognizer.onend = () => {
                 if (!isMicMuted) {
                     try { speechRecognizer.start(); } catch(e){}
                 }
             };
+
+            try { speechRecognizer.start(); } catch(e){}
+        }
+
+        async function sendSpeechForTranslation(text) {
+            let detected = detectLanguage(text);
+            let targetLang = getDestinationLanguage(detected);
+
+            document.getElementById("detectedLangTag").textContent = "Detectado: " + detected.toUpperCase();
+
+            let translated = await translateText(text, detected, targetLang);
+            showTranslation(translated);
+            speakText(translated, targetLang);
+
+            if (dataConnection && dataConnection.open) {
+                dataConnection.send(JSON.stringify({
+                    type: "SPEECH_TEXT",
+                    text: text,
+                    sourceLang: detected
+                }));
+            }
+        }
+
+        function detectLanguage(text) {
+            const lower = text.toLowerCase();
+
+            if (/(hola|gracias|necesito|quiero|puedo|donde|como|estoy|usted|mañana|ayuda)/.test(lower)) return "es";
+            if (/(hello|hi|thanks|thank|need|want|where|how|you|help|please|good)/.test(lower)) return "en";
+            if (/(bonjour|merci|comment|vous|aide|oui|non)/.test(lower)) return "fr";
+            if (/(ola|obrigado|voce|preciso|ajuda)/.test(lower)) return "pt";
+            if (/(hallo|danke|bitte|hilfe|wie)/.test(lower)) return "de";
+
+            return userConfig.targetLang;
+        }
+
+        function getDestinationLanguage(source) {
+            if (source === "es") return "en";
+            if (source === "en" || source === "fr" || source === "pt" || source === "de") return "es";
+            return userConfig.targetLang;
         }
 
         async function processIncomingSpeech(speechText, sourceLang) {
-            document.getElementById('originalSpeechText').textContent = `La otra persona dijo: "${speechText}"`;
-
-            // Traducir del idioma emisor a tu idioma seleccionado
-            const translatedText = await translateText(speechText, userConfig.targetLang);
-
-            // Mostrar en los subtítulos de la interfaz
-            const subtitleEl = document.getElementById('translatedSubtitleText');
-            subtitleEl.textContent = translatedText;
-            subtitleEl.classList.remove('subtitle-fade');
-            void subtitleEl.offsetWidth;
-            subtitleEl.classList.add('subtitle-fade');
-
-            // Reproducir la voz traducida mediante SpeechSynthesis
-            speakText(translatedText, userConfig.targetLang);
+            let target = getDestinationLanguage(sourceLang);
+            let translated = await translateText(speechText, sourceLang, target);
+            showTranslation(translated);
+            speakText(translated, target);
         }
 
-        async function translateText(text, targetLang) {
+        async function translateText(text, from, to) {
             try {
-                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`;
-                const res = await fetch(url);
-                const data = await res.json();
+                let url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
+                let response = await fetch(url);
+                let data = await response.json();
 
-                if (data && data.responseData && data.responseData.translatedText) {
+                if (data.responseData && data.responseData.translatedText) {
                     return data.responseData.translatedText;
                 }
-            } catch (err) {
-                console.warn('Error en traducción API:', err);
+            } catch (error) {
+                console.error("Error traducción:", error);
             }
             return text;
         }
 
-        function speakText(text, targetLang) {
-            if (!('speechSynthesis' in window)) return;
+        function showTranslation(text) {
+            let box = document.getElementById("translatedSubtitleText");
+            box.textContent = text;
+            box.classList.remove("subtitle-fade");
+            void box.offsetWidth;
+            box.classList.add("subtitle-fade");
+        }
 
-            window.speechSynthesis.cancel(); // Cancelar lecturas anteriores para evitar retrasos acumulados
+        function speakText(text, lang) {
+            if (!window.speechSynthesis) return;
 
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = targetLang === 'es' ? 'es-ES' : 'en-US';
-            utterance.rate = 1.0;
+            window.speechSynthesis.cancel();
+
+            let voices = window.speechSynthesis.getVoices();
+            let voice = voices.find(v => v.lang.toLowerCase().startsWith(lang));
+
+            let utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang === "es" ? "es-ES" : "en-US";
+
+            if (voice) {
+                utterance.voice = voice;
+            }
+
+            utterance.rate = 0.95;
+            utterance.pitch = 1.0;
             utterance.volume = 1.0;
 
             window.speechSynthesis.speak(utterance);
@@ -573,7 +637,7 @@
 
             if (isMicMuted) {
                 btn.classList.add('bg-red-600');
-                btn.classList.remove('bg-gray-800');
+                btn.classList.remove('bg-emerald-600');
                 btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
                 document.getElementById('originalSpeechText').textContent = 'Micrófono silenciado.';
                 if (speechRecognizer) try { speechRecognizer.stop(); } catch(e){}
@@ -599,7 +663,7 @@
 
             if (isCamOff) {
                 btn.classList.add('bg-red-600');
-                btn.classList.remove('bg-gray-800');
+                btn.classList.remove('bg-emerald-600');
                 btn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
                 localVideo.classList.add('hidden');
                 localFallback.classList.remove('hidden');
@@ -631,7 +695,7 @@
                     if (sender) sender.replaceTrack(videoTrack);
                 }
             } catch (e) {
-                console.error('Error al conmutar cámara:', e);
+                console.error("Error al conmutar cámara:", e);
             }
         }
 
