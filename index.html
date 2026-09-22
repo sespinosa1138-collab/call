@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Live Call Translator - WebRTC</title>
     
+    <!-- Eruda: Consola DevTools (F12) flotante para celulares -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -72,7 +76,6 @@
     <div id="setupModal" class="fixed inset-0 z-50 bg-black flex flex-col justify-center items-center p-4 sm:p-6 overflow-y-auto">
         <div class="w-full max-w-md mx-auto space-y-6 glass-pill p-6 rounded-3xl border border-gray-800 shadow-2xl">
             
-            <!-- Encabezado de la App -->
             <div class="text-center space-y-2">
                 <div class="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-pink-500 via-red-500 to-amber-500 text-white shadow-xl shadow-pink-500/20">
                     <i class="fa-solid fa-language text-3xl"></i>
@@ -81,7 +84,6 @@
                 <p class="text-xs text-gray-400">Traducción de llamadas en tiempo real (P2P)</p>
             </div>
 
-            <!-- Datos de Usuario -->
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Tu Nombre</label>
@@ -106,7 +108,6 @@
                     </div>
                 </div>
 
-                <!-- Selección Modo: Crear o Unirse -->
                 <div class="pt-2">
                     <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 text-center">Modo de Conexión</label>
                     <div class="grid grid-cols-2 gap-2 bg-gray-900 p-1 rounded-xl border border-gray-800">
@@ -119,11 +120,10 @@
                     </div>
                 </div>
 
-                <!-- Campo del Código -->
                 <div id="roomCodeContainer">
                     <label id="roomCodeLabel" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Código de Sala Creada</label>
                     <div class="flex gap-2">
-                        <input type="text" id="inputRoomId" placeholder="Ej. sala-123" 
+                        <input type="text" id="inputRoomId" placeholder="Ej. SALA-123" 
                                class="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-pink-500 font-mono uppercase">
                         <button id="btnRandom" onclick="generateRandomRoom()" type="button" class="bg-gray-800 hover:bg-gray-700 px-3.5 rounded-xl text-gray-300 text-xs font-medium border border-gray-700">
                             Azar
@@ -132,14 +132,13 @@
                 </div>
             </div>
 
-            <!-- Botón de Inicio -->
             <button onclick="startAppCall()" class="w-full py-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 font-semibold text-sm text-white shadow-lg shadow-pink-500/25 active:scale-95 transition flex items-center justify-center gap-2">
                 <i class="fa-solid fa-headset"></i>
                 <span id="btnStartText">Crear e Iniciar Llamada</span>
             </button>
 
             <div class="p-3 bg-gray-900/80 border border-gray-800 rounded-xl text-[11px] text-gray-400 leading-relaxed text-center">
-                <span>Micrófono configurado para traducción automática. Cámara desactivada al iniciar.</span>
+                <span>Traducción en tiempo real aislada: la otra persona solo escuchará la voz traducida.</span>
             </div>
         </div>
     </div>
@@ -147,7 +146,6 @@
     <!-- PANTALLA PRINCIPAL DE LA LLAMADA -->
     <div id="callContainer" class="relative w-full h-full flex flex-col justify-between overflow-hidden bg-gray-950">
         
-        <!-- CABECERA SUPERIOR -->
         <header class="absolute top-0 left-0 right-0 z-20 pt-safe px-4 py-3 flex items-center justify-between pointer-events-none">
             <div class="flex items-center space-x-2.5 pointer-events-auto glass-pill px-3 py-1.5 rounded-full">
                 <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-amber-500 p-0.5">
@@ -173,13 +171,9 @@
             </div>
         </header>
 
-        <!-- AREA DE VIDEO -->
         <div class="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-            
-            <!-- Video Remoto -->
             <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
 
-            <!-- Fallback cuando no hay video remoto -->
             <div id="remoteVideoFallback" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-b from-gray-900 via-gray-950 to-black z-0">
                 <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center mb-3 text-pink-400 text-3xl">
                     <i class="fa-solid fa-user-group"></i>
@@ -188,7 +182,6 @@
                 <p id="fallbackSubtext" class="text-xs text-gray-500 mt-1">Comparte el código de la sala para iniciar la traducción.</p>
             </div>
 
-            <!-- Video Local PIP -->
             <div id="localVideoWrapper" class="absolute top-16 right-4 sm:top-20 sm:right-6 w-28 sm:w-36 h-40 sm:h-52 rounded-2xl overflow-hidden border border-white/20 shadow-2xl z-20 bg-gray-900">
                 <video id="localVideo" autoplay muted playsinline class="w-full h-full object-cover mirror-video hidden"></video>
                 <div id="localVideoFallback" class="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-gray-500 text-[10px]">
@@ -200,7 +193,6 @@
                 </div>
             </div>
 
-            <!-- BANNER INFERIOR DE SUBTÍTULOS -->
             <div class="absolute bottom-24 sm:bottom-28 left-3 right-3 sm:left-12 sm:right-12 max-w-3xl mx-auto z-30 pointer-events-none">
                 <div class="glass-pill p-3.5 sm:p-4 rounded-2xl border border-white/15 shadow-2xl backdrop-blur-xl">
                     <div class="flex items-center justify-between mb-1">
@@ -228,9 +220,7 @@
             </div>
         </div>
 
-        <!-- BARRA DE CONTROLES INFERIOR -->
         <footer class="absolute bottom-0 left-0 right-0 z-40 pb-safe px-4 pt-3 flex items-center justify-center gap-4 sm:gap-6 pointer-events-auto bg-gradient-to-t from-black via-black/80 to-transparent">
-            
             <button id="btnMic" onclick="toggleMicrophone()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base bg-emerald-600">
                 <i class="fa-solid fa-microphone"></i>
             </button>
@@ -246,25 +236,18 @@
             <button onclick="hangupCall()" class="w-14 h-14 rounded-full bg-red-600 active:scale-90 transition-all flex items-center justify-center text-white text-xl shadow-lg shadow-red-600/40">
                 <i class="fa-solid fa-phone-slash"></i>
             </button>
-
         </footer>
     </div>
 
     <script>
-        /* ==========================================================================
-           ESTADO GLOBAL
-           ========================================================================== */
         let localStream = null;
+        let peerStreamForTransmission = null; // Stream silenciado para WebRTC
         let peer = null;
         let activeCall = null;
         let dataConnection = null;
 
         let currentMode = 'create';
-        let userConfig = {
-            name: "",
-            targetLang: "es",
-            roomId: ""
-        };
+        let userConfig = { name: "", targetLang: "es", roomId: "" };
 
         let currentFacingMode = "user";
         let isMicMuted = false;
@@ -274,10 +257,8 @@
         let timerInterval = null;
         let speechRecognizer = null;
         let availableVoices = [];
+        let sttRetryTimer = null;
 
-        /* ==========================================================================
-           INICIALIZACIÓN DE VOCES DEL NAVEGADOR
-           ========================================================================== */
         function loadVoices() {
             if ('speechSynthesis' in window) {
                 availableVoices = window.speechSynthesis.getVoices();
@@ -340,16 +321,11 @@
             if (!nameInput) { alert("Ingresa tu nombre"); return; }
             if (!roomInput) { alert("Ingresa código de sala"); return; }
 
-            userConfig = {
-                name: nameInput,
-                roomId: roomInput,
-                targetLang: targetLang
-            };
+            userConfig = { name: nameInput, roomId: roomInput, targetLang: targetLang };
 
             unlockSpeech();
             document.getElementById("setupModal").classList.add("hidden");
 
-            // Garantizar que la app inicie aunque falle el dispositivo de video
             await initMediaStream();
             initPeerJS();
             initSpeechRecognition();
@@ -363,40 +339,36 @@
             window.speechSynthesis.speak(test);
         }
 
-        /* ==========================================================================
-           CÁMARA Y MICRÓFONO (ROBUSTO CONTRA ERRORES HARDWARE)
-           ========================================================================== */
         async function initMediaStream() {
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
             }
 
             try {
-                // Intento 1: Audio + Video ideal
                 localStream = await navigator.mediaDevices.getUserMedia({
                     audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
                     video: { facingMode: currentFacingMode, width: { ideal: 640 }, height: { ideal: 480 } }
                 });
             } catch (err1) {
-                console.warn("Fallo cámara principal, reintentando cámara básica:", err1);
                 try {
-                    // Intento 2: Audio + Video básico
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                 } catch (err2) {
-                    console.warn("Fallo absoluto de cámara/ocupada por otra app. Iniciando MODO SOLO AUDIO:", err2);
                     try {
-                        // Intento 3: Solo Audio (previene que la app colapse)
                         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                     } catch (err3) {
-                        alert("No se pudo acceder al micrófono. Revisa los permisos de tu navegador.");
+                        alert("No se pudo acceder al micrófono.");
                         return;
                     }
                 }
             }
 
-            // Configuración inicial de pistas
+            // MANTENER MICRÓFONO ACTIVO LOCALMENTE PARA TRADUCCIÓN
             localStream.getAudioTracks().forEach(track => { track.enabled = true; });
             localStream.getVideoTracks().forEach(track => { track.enabled = !isCamOff; });
+
+            // CLONAR STREAM Y SILENCIAR AUDIO ENVIADO A LA OTRA PERSONA (Elimina la voz original en la llamada)
+            peerStreamForTransmission = localStream.clone();
+            peerStreamForTransmission.getAudioTracks().forEach(track => { track.enabled = false; });
 
             const video = document.getElementById("localVideo");
             if (video && localStream.getVideoTracks().length > 0) {
@@ -404,9 +376,6 @@
             }
         }
 
-        /* ==========================================================================
-           PEERJS P2P
-           ========================================================================== */
         function initPeerJS() {
             const cleanRoom = userConfig.roomId.replace(/[^A-Z0-9_-]/gi, "");
             const hostPeerId = `ROOM-${cleanRoom}-HOST`;
@@ -426,7 +395,7 @@
 
             peer.on("call", incoming => {
                 activeCall = incoming;
-                incoming.answer(localStream);
+                incoming.answer(peerStreamForTransmission);
                 incoming.on("stream", stream => { attachRemoteStream(stream); });
                 incoming.on("close", () => { handleRemoteDisconnect(); });
             });
@@ -444,7 +413,7 @@
             let conn = peer.connect(id);
             setupDataChannel(conn);
 
-            let call = peer.call(id, localStream);
+            let call = peer.call(id, peerStreamForTransmission);
             activeCall = call;
             call.on("stream", stream => { attachRemoteStream(stream); });
             call.on("close", () => { handleRemoteDisconnect(); });
@@ -502,15 +471,17 @@
             badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotBg}"></span><span>${text}</span>`;
         }
 
-        /* ==========================================================================
-           RECONOCIMIENTO DE VOZ CONTINUO + TRADUCCIÓN DUAL + TTS
-           ========================================================================== */
+        /* RECONOCIMIENTO DE VOZ ROBUSTO PARA MÓVILES (Con auto-reconexión instantánea) */
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
             if (!SpeechRecognition) {
-                document.getElementById("originalSpeechText").textContent = "Navegador no soporta reconocimiento de voz (Usa Chrome/Edge/Safari)";
+                document.getElementById("originalSpeechText").textContent = "Navegador no soporta traducción de voz.";
                 return;
+            }
+
+            if (speechRecognizer) {
+                try { speechRecognizer.abort(); } catch(e){}
             }
 
             speechRecognizer = new SpeechRecognition();
@@ -526,7 +497,6 @@
 
                 if (text.trim().length > 1) {
                     document.getElementById("originalSpeechText").textContent = `Escuchando: ${text}`;
-                    
                     let isFinal = event.results[event.results.length - 1].isFinal;
                     if (isFinal) {
                         sendSpeechForTranslation(text.trim());
@@ -536,15 +506,25 @@
 
             speechRecognizer.onerror = (error) => {
                 console.warn("Aviso STT:", error.error);
+                scheduleSTTRestart();
             };
 
             speechRecognizer.onend = () => {
                 if (!isMicMuted) {
-                    try { speechRecognizer.start(); } catch(e){}
+                    scheduleSTTRestart();
                 }
             };
 
             try { speechRecognizer.start(); } catch(e){}
+        }
+
+        function scheduleSTTRestart() {
+            if (sttRetryTimer) clearTimeout(sttRetryTimer);
+            sttRetryTimer = setTimeout(() => {
+                if (!isMicMuted) {
+                    try { speechRecognizer.start(); } catch(e){}
+                }
+            }, 300);
         }
 
         async function sendSpeechForTranslation(text) {
@@ -555,7 +535,6 @@
 
             let translated = await translateText(text, detected, targetLang);
             showTranslation(translated);
-            speakText(translated, targetLang);
 
             if (dataConnection && dataConnection.open) {
                 dataConnection.send(JSON.stringify({
@@ -589,11 +568,8 @@
             speakText(translated, target);
         }
 
-        /* API DE TRADUCCIÓN ULTRA-ROBUSTA CON FALLBACK DUAL */
         async function translateText(text, from, to) {
             if (!text) return "";
-            
-            // Intento 1: Google Translate API Pública
             try {
                 let gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
                 let res = await fetch(gUrl);
@@ -601,11 +577,8 @@
                 if (json && json[0] && json[0][0] && json[0][0][0]) {
                     return json[0][0][0];
                 }
-            } catch (e1) {
-                console.warn("Google Translate fallo, reintentando con MyMemory...", e1);
-            }
+            } catch (e1) {}
 
-            // Intento 2: MyMemory API Fallback
             try {
                 let mUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
                 let res = await fetch(mUrl);
@@ -613,11 +586,9 @@
                 if (json && json.responseData && json.responseData.translatedText) {
                     return json.responseData.translatedText;
                 }
-            } catch (e2) {
-                console.error("Fallo definitivo en traducción:", e2);
-            }
+            } catch (e2) {}
 
-            return text; // Devuelve el texto original si no hay red
+            return text;
         }
 
         function showTranslation(text) {
@@ -628,16 +599,13 @@
             box.classList.add("subtitle-fade");
         }
 
-        /* REPRODUCCIÓN DE VOZ ROBÓTICA CORREGIDA */
         function speakText(text, lang) {
             if (!('speechSynthesis' in window) || !text) return;
 
-            window.speechSynthesis.cancel(); // Detener audios anteriores
-
+            window.speechSynthesis.cancel();
             let utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = lang === "es" ? "es-ES" : (lang === "en" ? "en-US" : lang);
 
-            // Buscar voz instalada coincidente
             if (availableVoices.length === 0) {
                 availableVoices = window.speechSynthesis.getVoices();
             }
@@ -654,16 +622,11 @@
             window.speechSynthesis.speak(utterance);
         }
 
-        /* ==========================================================================
-           CONTROLES DE MICRÓFONO Y CÁMARA
-           ========================================================================== */
         function toggleMicrophone() {
             if (!localStream) return;
-            const track = localStream.getAudioTracks()[0];
             const btn = document.getElementById('btnMic');
 
             isMicMuted = !isMicMuted;
-            if (track) track.enabled = !isMicMuted;
 
             if (isMicMuted) {
                 btn.classList.add('bg-red-600');
@@ -676,7 +639,7 @@
                 btn.classList.add('bg-emerald-600');
                 btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
                 document.getElementById('originalSpeechText').textContent = 'Escuchando tu voz...';
-                if (speechRecognizer) try { speechRecognizer.start(); } catch(e){}
+                initSpeechRecognition();
             }
         }
 
@@ -717,8 +680,8 @@
 
             await initMediaStream();
 
-            if (activeCall && activeCall.peerConnection && localStream.getVideoTracks().length > 0) {
-                const videoTrack = localStream.getVideoTracks()[0];
+            if (activeCall && activeCall.peerConnection && peerStreamForTransmission.getVideoTracks().length > 0) {
+                const videoTrack = peerStreamForTransmission.getVideoTracks()[0];
                 const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
                 if (sender) sender.replaceTrack(videoTrack);
             }
@@ -738,6 +701,7 @@
         function hangupCall() {
             if (confirm('¿Deseas finalizar la llamada?')) {
                 if (localStream) localStream.getTracks().forEach(t => t.stop());
+                if (peerStreamForTransmission) peerStreamForTransmission.getTracks().forEach(t => t.stop());
                 if (speechRecognizer) try { speechRecognizer.stop(); } catch(e){}
                 if (peer) peer.destroy();
                 clearInterval(timerInterval);
