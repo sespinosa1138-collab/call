@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Live Call Translator Mobile</title>
+    <title>Live Call Translator - WebRTC</title>
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,7 +17,6 @@
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Custom Mobile App Styles -->
     <style>
         * {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -32,20 +31,14 @@
             color: #fff;
         }
 
-        /* Safe area spacing for mobile notches and bottom bars */
-        .pb-safe {
-            padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
-        }
-        .pt-safe {
-            padding-top: max(1rem, env(safe-area-inset-top));
-        }
+        .pb-safe { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+        .pt-safe { padding-top: max(1rem, env(safe-area-inset-top)); }
 
-        /* Instagram Style Floating Controls Glassmorphism */
         .glass-pill {
-            background: rgba(18, 18, 18, 0.75);
+            background: rgba(18, 18, 18, 0.8);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
         .glass-button {
@@ -56,25 +49,13 @@
         }
         .glass-button:active {
             transform: scale(0.92);
-            background: rgba(255, 255, 255, 0.28);
+            background: rgba(255, 255, 255, 0.3);
         }
 
-        /* Pulse animation for active speech detection */
-        @keyframes subtlePulse {
-            0% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.6); }
-            70% { box-shadow: 0 0 0 10px rgba(236, 72, 153, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); }
-        }
-        .speaking-pulse {
-            animation: subtlePulse 1.8s infinite;
-        }
-
-        /* Video Feed Scale & Mirroring */
         .mirror-video {
             transform: scaleX(-1);
         }
 
-        /* Fade-in transition for subtitles */
         .subtitle-fade {
             animation: fadeInText 0.25s ease-out forwards;
         }
@@ -87,292 +68,282 @@
 </head>
 <body class="h-full w-full relative flex flex-col justify-between select-none overflow-hidden">
 
-    <!-- INITIAL SETUP & ROOM JOIN MODAL (Mobile First) -->
-    <div id="setupModal" class="fixed inset-0 z-50 bg-black flex flex-col justify-between p-6 pt-safe pb-safe overflow-y-auto">
-        <div class="w-full max-w-sm mx-auto space-y-6 my-auto">
+    <!-- MODAL INICIAL (Crear o Unirse a una Sala) -->
+    <div id="setupModal" class="fixed inset-0 z-50 bg-black flex flex-col justify-center items-center p-4 sm:p-6 overflow-y-auto">
+        <div class="w-full max-w-md mx-auto space-y-6 glass-pill p-6 rounded-3xl border border-gray-800 shadow-2xl">
             
-            <!-- App Branding Header -->
+            <!-- Encabezado de la App -->
             <div class="text-center space-y-2">
                 <div class="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-pink-500 via-red-500 to-amber-500 text-white shadow-xl shadow-pink-500/20">
                     <i class="fa-solid fa-language text-3xl"></i>
                 </div>
-                <h1 class="text-2xl font-bold tracking-tight text-white">Traductor Live Mobile</h1>
-                <p class="text-xs text-gray-400">Llamadas P2P multilingües en vivo estilo Instagram</p>
+                <h1 class="text-2xl font-bold tracking-tight text-white">Translator Call</h1>
+                <p class="text-xs text-gray-400">Traducción de llamadas en tiempo real (P2P)</p>
             </div>
 
-            <!-- Configuration Form -->
+            <!-- Datos de Usuario -->
             <div class="space-y-4">
-                
-                <!-- Nickname Input -->
                 <div>
                     <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Tu Nombre</label>
-                    <input type="text" id="inputUsername" placeholder="Ej. Alex" 
+                    <input type="text" id="inputUsername" placeholder="Ej. Samuel" 
                            class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-pink-500 transition">
                 </div>
 
-                <!-- Destination Language Selection -->
                 <div>
                     <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
-                        Tu Idioma (Al que deseas traducir)
+                        Tu Idioma (Al que deseas escuchar/leer)
                     </label>
                     <div class="relative">
                         <select id="selectTargetLang" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white appearance-none focus:outline-none focus:border-pink-500 transition pr-10">
-                            <option value="es" selected>Español (Spanish)</option>
-                            <option value="en">English (Inglés)</option>
-                            <option value="fr">Français (Francés)</option>
-                            <option value="pt">Português (Portugués)</option>
-                            <option value="de">Deutsch (Alemán)</option>
-                            <option value="it">Italiano (Italiano)</option>
+                            <option value="es" selected>Español 🇪🇸</option>
+                            <option value="en">English 🇺🇸</option>
+                            <option value="fr">Français 🇫🇷</option>
+                            <option value="pt">Português 🇧🇷</option>
+                            <option value="de">Deutsch 🇩🇪</option>
+                            <option value="it">Italiano 🇮🇹</option>
                         </select>
                         <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
                     </div>
-                    <p class="text-[11px] text-gray-500 mt-1">Cualquier idioma que hable la otra persona se traducirá a esta opción.</p>
                 </div>
 
-                <!-- Call Room Code Options -->
-                <div>
-                    <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Código de la Sala / Llamada</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="inputRoomId" placeholder="Ej. sala-123" 
-                               class="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-pink-500 font-mono">
-                        <button onclick="generateRandomRoom()" type="button" class="bg-gray-800 hover:bg-gray-700 px-3.5 rounded-xl text-gray-300 text-xs font-medium border border-gray-700">
-                            Azar
+                <!-- Selección Modo: Crear o Unirse -->
+                <div class="pt-2">
+                    <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 text-center">Modo de Conexión</label>
+                    <div class="grid grid-cols-2 gap-2 bg-gray-900 p-1 rounded-xl border border-gray-800">
+                        <button type="button" id="tabCreate" onclick="switchMode('create')" class="py-2 rounded-lg text-xs font-semibold transition bg-pink-600 text-white">
+                            Crear Sala
+                        </button>
+                        <button type="button" id="tabJoin" onclick="switchMode('join')" class="py-2 rounded-lg text-xs font-semibold transition text-gray-400 hover:text-white">
+                            Unirme a Sala
                         </button>
                     </div>
                 </div>
 
+                <!-- Campo del Código -->
+                <div id="roomCodeContainer">
+                    <label id="roomCodeLabel" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Código de Sala Creada</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="inputRoomId" placeholder="Ej. sala-123" 
+                               class="flex-1 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-pink-500 font-mono uppercase">
+                        <button id="btnRandom" onclick="generateRandomRoom()" type="button" class="bg-gray-800 hover:bg-gray-700 px-3.5 rounded-xl text-gray-300 text-xs font-medium border border-gray-700">
+                            Azar
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <!-- Start Call Action Button -->
-            <div class="pt-2">
-                <button onclick="startMobileCall()" id="btnStartCall" class="w-full py-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 font-semibold text-sm text-white shadow-lg shadow-pink-500/25 active:scale-95 transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-video"></i>
-                    <span>Conectarme a la Llamada</span>
-                </button>
-            </div>
+            <!-- Botón de Inicio -->
+            <button onclick="startAppCall()" class="w-full py-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 font-semibold text-sm text-white shadow-lg shadow-pink-500/25 active:scale-95 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-headset"></i>
+                <span id="btnStartText">Crear e Iniciar Llamada</span>
+            </button>
 
-            <!-- Information Callout -->
-            <div class="p-3 bg-gray-900/80 border border-gray-800 rounded-xl text-[11px] text-gray-400 leading-relaxed flex items-start gap-2">
-                <i class="fa-solid fa-shield-halved text-pink-400 text-sm mt-0.5"></i>
-                <span>Funciona directamente en dos celulares en diferentes redes usando <strong>PeerJS (WebRTC)</strong>. Compatible con GitHub Pages.</span>
+            <div class="p-3 bg-gray-900/80 border border-gray-800 rounded-xl text-[11px] text-gray-400 leading-relaxed text-center">
+                <span>Totalmente compatible con Celulares y Computadores vía WebRTC + GitHub Pages.</span>
             </div>
-
         </div>
     </div>
 
-    <!-- MAIN LIVE CALL CONTAINER (Full Mobile Screen Viewport) -->
+    <!-- PANTALLA PRINCIPAL DE LA LLAMADA -->
     <div id="callContainer" class="relative w-full h-full flex flex-col justify-between overflow-hidden bg-gray-950">
         
-        <!-- TOP CALL HEADER OVERLAY -->
+        <!-- CABECERA SUPERIOR -->
         <header class="absolute top-0 left-0 right-0 z-20 pt-safe px-4 py-3 flex items-center justify-between pointer-events-none">
-            
-            <!-- Remote User Details -->
             <div class="flex items-center space-x-2.5 pointer-events-auto glass-pill px-3 py-1.5 rounded-full">
-                <div class="relative">
-                    <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-amber-500 p-0.5">
-                        <div id="remoteAvatarPlaceholder" class="w-full h-full bg-gray-900 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase">
-                            ?
-                        </div>
+                <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-amber-500 p-0.5">
+                    <div id="remoteAvatar" class="w-full h-full bg-gray-900 rounded-full flex items-center justify-center text-[10px] font-bold text-white uppercase">
+                        ?
                     </div>
-                    <span id="remoteLiveDot" class="hidden absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-black"></span>
                 </div>
                 <div>
-                    <h2 id="remotePeerName" class="text-xs font-semibold text-white tracking-wide">Esperando...</h2>
+                    <h2 id="remotePeerName" class="text-xs font-semibold text-white tracking-wide">Esperando usuario...</h2>
                     <p id="callDuration" class="text-[10px] text-gray-400 font-mono">00:00</p>
                 </div>
             </div>
 
-            <!-- Connection & Subtitle Status Indicators -->
             <div class="pointer-events-auto flex items-center gap-1.5">
                 <div id="statusBadge" class="glass-pill px-2.5 py-1 rounded-full text-[10px] font-medium text-amber-400 flex items-center gap-1">
                     <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
-                    <span id="statusText">Conectando...</span>
+                    <span id="statusText">Esperando...</span>
                 </div>
                 
-                <button onclick="shareCallLink()" class="glass-pill w-7 h-7 rounded-full flex items-center justify-center text-white text-xs">
+                <button onclick="shareCallLink()" class="glass-pill w-8 h-8 rounded-full flex items-center justify-center text-white text-xs active:scale-90">
                     <i class="fa-solid fa-share-nodes"></i>
                 </button>
             </div>
-
         </header>
 
-        <!-- REMOTE VIDEO VIEWPORT (Main Background Stream) -->
+        <!-- AREA DE VIDEO -->
         <div class="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
             
-            <!-- Video Element for Remote Audio/Video Stream -->
+            <!-- Video Remoto -->
             <video id="remoteVideo" autoplay playsinline class="w-full h-full object-cover"></video>
 
-            <!-- Fallback Overlay when Remote Video is Disconnected -->
+            <!-- Fallback cuando no hay video remoto -->
             <div id="remoteVideoFallback" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-b from-gray-900 via-gray-950 to-black z-0">
                 <div class="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center mb-3 text-pink-400 text-3xl">
-                    <i class="fa-solid fa-user-large"></i>
+                    <i class="fa-solid fa-user-group"></i>
                 </div>
-                <p id="fallbackText" class="text-sm font-medium text-gray-300">Esperando que la otra persona ingrese a la llamada...</p>
-                <p id="fallbackSubtext" class="text-xs text-gray-500 mt-1">Comparte el código de la sala para conectarse.</p>
+                <p id="fallbackText" class="text-sm font-medium text-gray-300">Esperando que la otra persona se conecte...</p>
+                <p id="fallbackSubtext" class="text-xs text-gray-500 mt-1">Comparte el código de la sala para iniciar la traducción.</p>
             </div>
 
-            <!-- Speaking Pulse Border Overlay -->
-            <div id="speakingPulseOverlay" class="absolute inset-0 border-4 border-pink-500/0 pointer-events-none transition-all duration-300 z-10"></div>
-
-            <!-- PIP LOCAL VIDEO (Self Front-Camera View) -->
-            <div id="localVideoWrapper" class="absolute top-20 right-4 w-28 h-40 rounded-2xl overflow-hidden border border-white/20 shadow-2xl z-20 bg-gray-900 group cursor-pointer transition-transform duration-200 active:scale-95">
+            <!-- Video Local PIP -->
+            <div id="localVideoWrapper" class="absolute top-16 right-4 sm:top-20 sm:right-6 w-28 sm:w-36 h-40 sm:h-52 rounded-2xl overflow-hidden border border-white/20 shadow-2xl z-20 bg-gray-900">
                 <video id="localVideo" autoplay muted playsinline class="w-full h-full object-cover mirror-video"></video>
-                <div id="localVideoFallback" class="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-gray-500 text-[10px]">
+                <div id="localVideoFallback" class="hidden w-full h-full flex flex-col items-center justify-center bg-gray-900 text-gray-500 text-[10px]">
                     <i class="fa-solid fa-video-slash text-base mb-1"></i>
-                    <span>Sin Video</span>
+                    <span>Sin Camara</span>
                 </div>
                 <div class="absolute bottom-1 left-1.5 bg-black/60 px-1.5 py-0.5 rounded text-[9px] text-gray-200 font-medium backdrop-blur">
                     Tú
                 </div>
             </div>
 
-            <!-- SUBTITLE BOTTOM BANNER (Mobile Floating Horizontal Overlay) -->
-            <div class="absolute bottom-28 left-3 right-3 z-30 pointer-events-none">
-                <div class="glass-pill p-3.5 rounded-2xl border border-white/15 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+            <!-- BANNER INFERIOR DE SUBTÍTULOS -->
+            <div class="absolute bottom-24 sm:bottom-28 left-3 right-3 sm:left-12 sm:right-12 max-w-3xl mx-auto z-30 pointer-events-none">
+                <div class="glass-pill p-3.5 sm:p-4 rounded-2xl border border-white/15 shadow-2xl backdrop-blur-xl">
                     <div class="flex items-center justify-between mb-1">
                         <div class="flex items-center space-x-1.5">
                             <span class="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span>
-                            <span id="subtitleHeader" class="text-[10px] font-bold tracking-wider text-pink-400 uppercase">
-                                SUBTÍTULOS EN VIVO (TRADUCIDO)
+                            <span id="subtitleHeader" class="text-[10px] sm:text-xs font-bold tracking-wider text-pink-400 uppercase">
+                                SUBTÍTULOS EN VIVO
                             </span>
                         </div>
-                        <span id="detectedLangTag" class="text-[9px] font-mono text-gray-400 bg-white/5 px-1.5 py-0.5 rounded">
-                            Auto
+                        <span id="detectedLangTag" class="text-[9px] font-mono text-gray-400 bg-white/10 px-1.5 py-0.5 rounded">
+                            Traducción Activa
                         </span>
                     </div>
 
-                    <!-- Transcribed original text -->
-                    <p id="originalSpeechText" class="text-[11px] text-gray-400 italic min-h-[1rem] truncate">
-                        Esperando audio...
+                    <p id="originalSpeechText" class="text-[11px] text-gray-400 italic min-h-[1.2rem] truncate">
+                        Escuchando audio...
                     </p>
 
-                    <!-- Main Translated Subtitle Text -->
-                    <div class="bg-black/40 p-2 rounded-xl border border-white/5 mt-1">
-                        <p id="translatedSubtitleText" class="text-sm font-semibold text-white leading-snug subtitle-fade">
-                            Lo que diga la otra persona en cualquier idioma aparecerá traducido aquí abajo en tiempo real.
+                    <div class="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/10 mt-1">
+                        <p id="translatedSubtitleText" class="text-sm sm:text-base font-semibold text-white leading-snug subtitle-fade">
+                            Lo que hable la otra persona se traducirá en tiempo real y aparecerá aquí.
                         </p>
                     </div>
                 </div>
             </div>
-
         </div>
 
-        <!-- BOTTOM CALL CONTROL BAR (Instagram Mobile Style) -->
-        <footer class="absolute bottom-0 left-0 right-0 z-40 pb-safe px-4 pt-3 flex items-center justify-around pointer-events-auto bg-gradient-to-t from-black via-black/80 to-transparent">
+        <!-- BARRA DE CONTROLES INFERIOR -->
+        <footer class="absolute bottom-0 left-0 right-0 z-40 pb-safe px-4 pt-3 flex items-center justify-center gap-4 sm:gap-6 pointer-events-auto bg-gradient-to-t from-black via-black/80 to-transparent">
             
-            <!-- Toggle Microphone -->
             <button id="btnMic" onclick="toggleMicrophone()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base">
                 <i class="fa-solid fa-microphone"></i>
             </button>
 
-            <!-- Toggle Video Camera -->
             <button id="btnCamera" onclick="toggleCamera()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base">
                 <i class="fa-solid fa-video"></i>
             </button>
 
-            <!-- Switch Front/Back Camera -->
             <button id="btnSwitchCam" onclick="switchCameraFacing()" class="glass-button w-12 h-12 rounded-full flex items-center justify-center text-white text-base">
                 <i class="fa-solid fa-camera-rotate"></i>
             </button>
 
-            <!-- End Call Red Button -->
             <button onclick="hangupCall()" class="w-14 h-14 rounded-full bg-red-600 active:scale-90 transition-all flex items-center justify-center text-white text-xl shadow-lg shadow-red-600/40">
                 <i class="fa-solid fa-phone-slash"></i>
             </button>
 
         </footer>
-
     </div>
 
     <script>
         /* ==========================================================================
-           GLOBAL STATE AND CONFIGURATION VARIABLES
+           ESTADO GLOBAL
            ========================================================================== */
         let localStream = null;
         let peer = null;
         let activeCall = null;
-        let dataChannel = null;
+        let dataConnection = null;
 
-        let userConfig = {
-            name: '',
-            targetLang: 'es',
-            roomId: ''
-        };
+        let currentMode = 'create'; // 'create' | 'join'
+        let userConfig = { name: '', targetLang: 'es', roomId: '' };
 
-        let currentFacingMode = 'user'; // 'user' for Front Cam, 'environment' for Rear Cam
+        let currentFacingMode = 'user';
         let isMicMuted = false;
         let isCamOff = false;
         let callSeconds = 0;
         let timerInterval = null;
 
-        // Speech Recognition Instance
         let speechRecognizer = null;
-        let isRecognizing = false;
+        let isSynthesizingSpeech = false;
 
         /* ==========================================================================
-           DOM INITIALIZATION AND HELPER FUNCTIONS
+           INICIALIZACIÓN DE INTERFAZ Y MODOS
            ========================================================================== */
         function generateRandomRoom() {
-            const randomCode = 'room-' + Math.floor(1000 + Math.random() * 9000);
+            const randomCode = 'SALA-' + Math.floor(1000 + Math.random() * 9000);
             document.getElementById('inputRoomId').value = randomCode;
         }
 
-        // Auto-fill random code on load if empty
+        function switchMode(mode) {
+            currentMode = mode;
+            const tabCreate = document.getElementById('tabCreate');
+            const tabJoin = document.getElementById('tabJoin');
+            const roomLabel = document.getElementById('roomCodeLabel');
+            const btnStartText = document.getElementById('btnStartText');
+            const btnRandom = document.getElementById('btnRandom');
+
+            if (mode === 'create') {
+                tabCreate.className = "py-2 rounded-lg text-xs font-semibold transition bg-pink-600 text-white";
+                tabJoin.className = "py-2 rounded-lg text-xs font-semibold transition text-gray-400 hover:text-white";
+                roomLabel.textContent = "Código de Sala Creada";
+                btnStartText.textContent = "Crear e Iniciar Llamada";
+                btnRandom.style.display = "block";
+                generateRandomRoom();
+            } else {
+                tabJoin.className = "py-2 rounded-lg text-xs font-semibold transition bg-pink-600 text-white";
+                tabCreate.className = "py-2 rounded-lg text-xs font-semibold transition text-gray-400 hover:text-white";
+                roomLabel.textContent = "Ingresa Código de la Sala";
+                btnStartText.textContent = "Unirme a la Llamada";
+                btnRandom.style.display = "none";
+                document.getElementById('inputRoomId').value = "";
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             generateRandomRoom();
         });
 
         function shareCallLink() {
-            const shareText = `¡Únete a mi videollamada traducida en vivo! Código de sala: ${userConfig.roomId}`;
+            const shareText = `¡Únete a mi videollamada traducida! Código de sala: ${userConfig.roomId}`;
             if (navigator.share) {
-                navigator.share({
-                    title: 'Llamada Traducida Mobile',
-                    text: shareText,
-                    url: window.location.href
-                }).catch(() => {});
+                navigator.share({ title: 'Translator Call', text: shareText, url: window.location.href }).catch(() => {});
             } else {
-                navigator.clipboard.writeText(shareText);
-                alert('Código de sala copiado al portapapeles: ' + userConfig.roomId);
+                navigator.clipboard.writeText(userConfig.roomId);
+                alert('Código copiado al portapapeles: ' + userConfig.roomId);
             }
         }
 
         /* ==========================================================================
-           MAIN CALL STARTUP & PERMISSIONS
+           ACCESO A MEDIOS (CÁMARA Y MICRÓFONO CORREGIDO)
            ========================================================================== */
-        async function startMobileCall() {
+        async function startAppCall() {
             const nameInput = document.getElementById('inputUsername').value.trim();
-            const roomInput = document.getElementById('inputRoomId').value.trim();
+            const roomInput = document.getElementById('inputRoomId').value.trim().toUpperCase();
             const targetLang = document.getElementById('selectTargetLang').value;
 
-            if (!nameInput) {
-                alert('Por favor, ingresa tu nombre.');
-                return;
-            }
-            if (!roomInput) {
-                alert('Por favor, ingresa o genera un código de sala.');
-                return;
-            }
+            if (!nameInput) { alert('Por favor, ingresa tu nombre.'); return; }
+            if (!roomInput) { alert('Por favor, ingresa un código de sala.'); return; }
 
             userConfig.name = nameInput;
-            userConfig.roomId = roomInput.toLowerCase();
+            userConfig.roomId = roomInput;
             userConfig.targetLang = targetLang;
 
-            // Hide Setup Modal and show Call Interface
             document.getElementById('setupModal').classList.add('hidden');
-            
-            // Update Subtitle Header tag according to user target language
-            const langNames = { es: 'ESPAÑOL', en: 'ENGLISH', fr: 'FRANÇAIS', pt: 'PORTUGUÊS', de: 'DEUTSCH', it: 'ITALIANO' };
-            document.getElementById('subtitleHeader').textContent = `SUBTÍTULOS EN VIVO (${langNames[targetLang] || 'TRADUCIDO'})`;
 
-            // Request Camera and Microphone Permissions
             try {
                 await initMediaStream();
-                initPeerJSConnection();
-                initSpeechRecognitionEngine();
+                initPeerJS();
+                initSpeechRecognition();
                 startCallTimer();
             } catch (err) {
-                console.error('Media permission error:', err);
-                alert('No se pudo acceder a la cámara o micrófono. Por favor habilita los permisos en tu navegador móvil.');
+                console.error('Error al inicializar cámara/micrófono:', err);
+                alert('No se pudo acceder a la cámara o micrófono. Asegúrate de dar los permisos correspondientes.');
+                document.getElementById('setupModal').classList.remove('hidden');
             }
         }
 
@@ -381,45 +352,50 @@
                 localStream.getTracks().forEach(track => track.stop());
             }
 
-            localStream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
+            // Restricciones flexibles para evitar el error NotReadableError tanto en PC como en móvil
+            const constraints = {
+                audio: { echoCancellation: true, noiseSuppression: true },
                 video: {
                     facingMode: currentFacingMode,
-                    width: { ideal: 720 },
-                    height: { ideal: 1280 }
+                    width: { ideal: 640 },
+                    height: { ideal: 480 }
                 }
-            });
+            };
 
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
             const localVideo = document.getElementById('localVideo');
             localVideo.srcObject = localStream;
             document.getElementById('localVideoFallback').classList.add('hidden');
         }
 
         /* ==========================================================================
-           PEERJS WEBRTC CONNECTION ENGINE (GitHub Pages Compatible)
+           CONEXIÓN P2P PEERJS (HOST vs CLIENT)
            ========================================================================== */
-        function initPeerJSConnection() {
-            const statusText = document.getElementById('statusText');
+        function initPeerJS() {
+            const cleanRoom = userConfig.roomId.replace(/[^A-Z0-9_-]/gi, '');
             
-            // Sanitize peer ID strings for PeerJS compatibility
-            const sanitizedRoom = userConfig.roomId.replace(/[^a-zA-Z0-9_-]/g, '');
-            const localPeerId = `${sanitizedRoom}-user-${Math.floor(1000 + Math.random() * 9000)}`;
+            // Definición explícita de IDs para evitar colisiones
+            const hostPeerId = `ROOM-${cleanRoom}-HOST`;
+            const clientPeerId = `ROOM-${cleanRoom}-CLIENT`;
 
-            peer = new Peer(localPeerId, {
-                debug: 1
-            });
+            const myPeerId = (currentMode === 'create') ? hostPeerId : clientPeerId;
+            const targetPeerId = (currentMode === 'create') ? clientPeerId : hostPeerId;
+
+            peer = new Peer(myPeerId, { debug: 1 });
 
             peer.on('open', (id) => {
-                console.log('PeerJS connected with ID:', id);
-                statusText.textContent = 'Sala: ' + userConfig.roomId;
-                
-                // Scan and attempt connection to existing peers in the same room
-                connectToRoomPeer(sanitizedRoom, id);
+                console.log('PeerJS activo con ID:', id);
+                updateStatusBadge(currentMode === 'create' ? 'Esperando Invitado...' : 'Conectando a Sala...', 'bg-amber-400', 'text-amber-400');
+
+                if (currentMode === 'join') {
+                    setTimeout(() => {
+                        connectToPeer(targetPeerId);
+                    }, 1000);
+                }
             });
 
-            // Handle incoming calls from remote peer
+            // Recibir llamada entrante
             peer.on('call', (incomingCall) => {
-                console.log('Receiving incoming WebRTC call...');
                 activeCall = incomingCall;
                 incomingCall.answer(localStream);
 
@@ -427,40 +403,32 @@
                     attachRemoteStream(remoteStream);
                 });
 
-                incomingCall.on('close', () => {
-                    handleRemoteDisconnect();
-                });
+                incomingCall.on('close', () => { handleRemoteDisconnect(); });
             });
 
-            // Handle incoming DataChannel for subtitles sync
+            // Recibir conexión DataChannel
             peer.on('connection', (conn) => {
-                setupDataChannelListeners(conn);
+                setupDataChannel(conn);
             });
 
             peer.on('error', (err) => {
-                console.warn('PeerJS Warning/Error:', err.type);
+                console.warn('PeerJS Error/Aviso:', err.type);
+                if (err.type === 'unavailable-id') {
+                    alert('El código de sala ya está en uso o la sala ya ha sido creada. Intenta unirte o usa otro código.');
+                }
             });
         }
 
-        function connectToRoomPeer(roomCode, myId) {
-            // Attempt secondary peer connection protocol
-            // Note: In a 2-person room, we listen or initiate based on string sorting
-            const isInitiator = true; 
-
-            // Create a Data Connection with the peer room ID prefix
-            // Search for peer target
-            const peerListSearch = `${roomCode}-target`;
-            
-            // Send connection signal via PeerJS DataChannel
-            const conn = peer.connect(peerListSearch, {
-                metadata: { username: userConfig.name, targetLang: userConfig.targetLang }
+        function connectToPeer(targetId) {
+            // Conexión de Datos
+            const conn = peer.connect(targetId, {
+                metadata: { name: userConfig.name, targetLang: userConfig.targetLang }
             });
+            setupDataChannel(conn);
 
-            setupDataChannelListeners(conn);
-
-            // Initiate WebRTC Call
-            const call = peer.call(peerListSearch, localStream, {
-                metadata: { username: userConfig.name }
+            // Conexión de Video
+            const call = peer.call(targetId, localStream, {
+                metadata: { name: userConfig.name }
             });
 
             if (call) {
@@ -468,61 +436,48 @@
                 call.on('stream', (remoteStream) => {
                     attachRemoteStream(remoteStream);
                 });
-                call.on('close', () => {
-                    handleRemoteDisconnect();
-                });
+                call.on('close', () => { handleRemoteDisconnect(); });
             }
         }
 
-        function setupDataChannelListeners(conn) {
-            dataChannel = conn;
+        function setupDataChannel(conn) {
+            dataConnection = conn;
 
-            dataChannel.on('open', () => {
-                console.log('DataChannel P2P Connected successfully.');
+            dataConnection.on('open', () => {
                 updateStatusBadge('En Línea', 'bg-emerald-500', 'text-emerald-400');
                 
-                // Send metadata exchange
-                dataChannel.send({
+                // Intercambiar información de usuario
+                dataConnection.send({
                     type: 'META',
-                    username: userConfig.name,
+                    name: userConfig.name,
                     targetLang: userConfig.targetLang
                 });
             });
 
-            dataChannel.on('data', async (data) => {
+            dataConnection.on('data', async (data) => {
                 if (data.type === 'META') {
-                    document.getElementById('remotePeerName').textContent = data.username || 'Remoto';
-                    document.getElementById('remoteAvatarPlaceholder').textContent = (data.username || 'R').charAt(0).toUpperCase();
+                    document.getElementById('remotePeerName').textContent = data.name || 'Usuario Remoto';
+                    document.getElementById('remoteAvatar').textContent = (data.name || 'U').charAt(0).toUpperCase();
                 }
 
-                if (data.type === 'SPEECH_TRANSCRIPT') {
-                    // Speech payload received from remote device
-                    await handleIncomingRemoteSpeech(data.text, data.sourceLang);
+                if (data.type === 'SPEECH_TEXT') {
+                    await processIncomingSpeech(data.text);
                 }
             });
 
-            dataChannel.on('close', () => {
-                handleRemoteDisconnect();
-            });
+            dataConnection.on('close', () => { handleRemoteDisconnect(); });
         }
 
         function attachRemoteStream(remoteStream) {
             const remoteVideo = document.getElementById('remoteVideo');
-            const fallbackOverlay = document.getElementById('remoteVideoFallback');
-            const remoteLiveDot = document.getElementById('remoteLiveDot');
-
             remoteVideo.srcObject = remoteStream;
-            fallbackOverlay.classList.add('hidden');
-            remoteLiveDot.classList.remove('hidden');
-
-            updateStatusBadge('Llamada Activa', 'bg-emerald-500', 'text-emerald-400');
+            document.getElementById('remoteVideoFallback').classList.add('hidden');
+            updateStatusBadge('Llamada Conectada', 'bg-emerald-500', 'text-emerald-400');
         }
 
         function handleRemoteDisconnect() {
             document.getElementById('remoteVideoFallback').classList.remove('hidden');
-            document.getElementById('remoteLiveDot').classList.add('hidden');
             document.getElementById('remotePeerName').textContent = 'Desconectado';
-            document.getElementById('fallbackText').textContent = 'La otra persona ha salido de la llamada.';
             updateStatusBadge('Desconectado', 'bg-red-500', 'text-red-400');
         }
 
@@ -533,14 +488,13 @@
         }
 
         /* ==========================================================================
-           SPEECH RECOGNITION & AUTOMATIC TRANSLATION ENGINE
+           RECONOCIMIENTO DE VOZ Y TRADUCCIÓN
            ========================================================================== */
-        function initSpeechRecognitionEngine() {
+        function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
             if (!SpeechRecognition) {
-                console.warn('Speech Recognition API not supported in this mobile browser.');
-                document.getElementById('originalSpeechText').textContent = 'Reconocimiento de voz no soportado en este navegador.';
+                document.getElementById('originalSpeechText').textContent = 'Tu navegador no soporta SpeechRecognition.';
                 return;
             }
 
@@ -548,123 +502,110 @@
             speechRecognizer.continuous = true;
             speechRecognizer.interimResults = true;
 
-            // Use continuous listening mode
-            speechRecognizer.onstart = () => {
-                isRecognizing = true;
-            };
+            speechRecognizer.onresult = (event) => {
+                if (isSynthesizingSpeech) return; // Evitar capturar la voz traducida que sale de la bocina
 
-            speechRecognizer.onresult = async (event) => {
-                let interimTranscript = '';
                 let finalTranscript = '';
-
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
                     if (event.results[i].isFinal) {
                         finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
                     }
                 }
 
-                const activeSpeech = finalTranscript || interimTranscript;
-
-                if (activeSpeech.trim().length > 0) {
-                    // Send speech text over P2P DataChannel to the remote phone
-                    if (dataChannel && dataChannel.open && finalTranscript.trim().length > 0) {
-                        dataChannel.send({
-                            type: 'SPEECH_TRANSCRIPT',
-                            text: finalTranscript.trim(),
-                            sourceLang: userConfig.targetLang // Sending context
+                if (finalTranscript.trim().length > 0) {
+                    if (dataConnection && dataConnection.open) {
+                        dataConnection.send({
+                            type: 'SPEECH_TEXT',
+                            text: finalTranscript.trim()
                         });
                     }
                 }
             };
 
-            speechRecognizer.onerror = (err) => {
-                console.warn('Speech Engine error:', err.error);
-            };
+            speechRecognizer.onerror = (e) => { console.warn('Error STT:', e.error); };
 
             speechRecognizer.onend = () => {
-                // Auto-restart recognition loop if call is active
-                if (!isMicMuted) {
+                if (!isMicMuted && !isSynthesizingSpeech) {
                     try { speechRecognizer.start(); } catch(e){}
                 }
             };
 
-            // Start listening
             try { speechRecognizer.start(); } catch(e){}
         }
 
-        /* Process Incoming Speech from Remote User & Translate to Local Target Language */
-        async function handleIncomingRemoteSpeech(speechText, sourceLangHint) {
+        async function processIncomingSpeech(speechText) {
             document.getElementById('originalSpeechText').textContent = `"${speechText}"`;
 
-            // Visual pulse feedback on video stream
-            triggerSpeakingPulse();
+            // Traducir texto al idioma local elegido
+            const translatedText = await translateText(speechText, userConfig.targetLang);
 
-            // Execute Immediate Translation
-            const translatedText = await translateTextEngine(speechText, userConfig.targetLang);
-
-            // Render translated text on local mobile banner
+            // Mostrar en pantalla
             const subtitleEl = document.getElementById('translatedSubtitleText');
             subtitleEl.textContent = translatedText;
-            
-            // Re-trigger animation
             subtitleEl.classList.remove('subtitle-fade');
-            void subtitleEl.offsetWidth; // Force reflow
+            void subtitleEl.offsetWidth;
             subtitleEl.classList.add('subtitle-fade');
+
+            // Reproducir por voz traducida
+            speakText(translatedText, userConfig.targetLang);
         }
 
-        /* Fast Translation Engine API with Fallback */
-        async function translateTextEngine(text, targetLang) {
-            document.getElementById('detectedLangTag').textContent = 'Traduciendo...';
-
-            // Primary Fast Endpoint: MyMemory Translation API
-            const pair = `autodetect|${targetLang}`;
-            const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${pair}`;
-
+        async function translateText(text, targetLang) {
             try {
-                const response = await fetch(url);
-                const data = await response.json();
+                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=autodetect|${targetLang}`;
+                const res = await fetch(url);
+                const data = await res.json();
 
                 if (data && data.responseData && data.responseData.translatedText) {
-                    const detected = data.responseData.detectedLanguage || 'Auto';
-                    document.getElementById('detectedLangTag').textContent = detected.toUpperCase();
                     return data.responseData.translatedText;
                 }
             } catch (err) {
-                console.warn('Primary translation API failed, using fallback:', err);
+                console.warn('Error API Traducción:', err);
             }
-
-            // Fallback: Echo response if offline or rate limited
-            document.getElementById('detectedLangTag').textContent = 'Directo';
             return text;
         }
 
-        function triggerSpeakingPulse() {
-            const pulseOverlay = document.getElementById('speakingPulseOverlay');
-            pulseOverlay.classList.add('border-pink-500/60', 'speaking-pulse');
-            setTimeout(() => {
-                pulseOverlay.classList.remove('border-pink-500/60', 'speaking-pulse');
-            }, 2000);
+        function speakText(text, lang) {
+            if (!('speechSynthesis' in window)) return;
+
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 1.0;
+
+            utterance.onstart = () => {
+                isSynthesizingSpeech = true;
+                if (speechRecognizer) speechRecognizer.stop();
+            };
+
+            utterance.onend = () => {
+                isSynthesizingSpeech = false;
+                if (!isMicMuted && speechRecognizer) {
+                    try { speechRecognizer.start(); } catch(e){}
+                }
+            };
+
+            window.speechSynthesis.speak(utterance);
         }
 
         /* ==========================================================================
-           MOBILE CONTROLS & CAMERA / MIC TOGGLES
+           CONTROLES MULTIMEDIA
            ========================================================================== */
         function toggleMicrophone() {
             if (!localStream) return;
-            const audioTrack = localStream.getAudioTracks()[0];
-            if (audioTrack) {
+            const track = localStream.getAudioTracks()[0];
+            if (track) {
                 isMicMuted = !isMicMuted;
-                audioTrack.enabled = !isMicMuted;
+                track.enabled = !isMicMuted;
 
                 const btn = document.getElementById('btnMic');
                 if (isMicMuted) {
-                    btn.classList.add('bg-red-600', 'border-red-500');
+                    btn.classList.add('bg-red-600');
                     btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
                     if (speechRecognizer) speechRecognizer.stop();
                 } else {
-                    btn.classList.remove('bg-red-600', 'border-red-500');
+                    btn.classList.remove('bg-red-600');
                     btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
                     if (speechRecognizer) try { speechRecognizer.start(); } catch(e){}
                 }
@@ -673,22 +614,22 @@
 
         function toggleCamera() {
             if (!localStream) return;
-            const videoTrack = localStream.getVideoTracks()[0];
-            if (videoTrack) {
+            const track = localStream.getVideoTracks()[0];
+            if (track) {
                 isCamOff = !isCamOff;
-                videoTrack.enabled = !isCamOff;
+                track.enabled = !isCamOff;
 
                 const btn = document.getElementById('btnCamera');
                 const localFallback = document.getElementById('localVideoFallback');
                 const localVideo = document.getElementById('localVideo');
 
                 if (isCamOff) {
-                    btn.classList.add('bg-red-600', 'border-red-500');
+                    btn.classList.add('bg-red-600');
                     btn.innerHTML = '<i class="fa-solid fa-video-slash"></i>';
                     localVideo.classList.add('hidden');
                     localFallback.classList.remove('hidden');
                 } else {
-                    btn.classList.remove('bg-red-600', 'border-red-500');
+                    btn.classList.remove('bg-red-600');
                     btn.innerHTML = '<i class="fa-solid fa-video"></i>';
                     localVideo.classList.remove('hidden');
                     localFallback.classList.add('hidden');
@@ -700,7 +641,6 @@
             currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
             const localVideo = document.getElementById('localVideo');
 
-            // Mirror video only for front camera
             if (currentFacingMode === 'user') {
                 localVideo.classList.add('mirror-video');
             } else {
@@ -710,16 +650,13 @@
             try {
                 await initMediaStream();
 
-                // Replace video track in active WebRTC peer call
                 if (activeCall && activeCall.peerConnection) {
                     const videoTrack = localStream.getVideoTracks()[0];
                     const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                    if (sender) {
-                        sender.replaceTrack(videoTrack);
-                    }
+                    if (sender) sender.replaceTrack(videoTrack);
                 }
-            } catch (err) {
-                console.error('Error switching camera:', err);
+            } catch (e) {
+                console.error('Error al cambiar de cámara:', e);
             }
         }
 
@@ -736,15 +673,9 @@
 
         function hangupCall() {
             if (confirm('¿Deseas finalizar la llamada?')) {
-                if (localStream) {
-                    localStream.getTracks().forEach(track => track.stop());
-                }
-                if (speechRecognizer) {
-                    speechRecognizer.stop();
-                }
-                if (peer) {
-                    peer.destroy();
-                }
+                if (localStream) localStream.getTracks().forEach(t => t.stop());
+                if (speechRecognizer) speechRecognizer.stop();
+                if (peer) peer.destroy();
                 clearInterval(timerInterval);
                 location.reload();
             }
