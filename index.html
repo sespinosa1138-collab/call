@@ -5,14 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Live Call Translator - WebRTC</title>
     
+    <!-- Favicon dinámico en formato SVG para eliminar el error 404 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
+
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- FontAwesome Icons CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
     
     <!-- PeerJS CDN -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" crossorigin="anonymous"></script>
 
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -76,36 +79,32 @@
                 <div class="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-pink-500 via-red-500 to-amber-500 text-white shadow-xl shadow-pink-500/20">
                     <i class="fa-solid fa-language text-3xl"></i>
                 </div>
-                <h1 class="text-2xl font-bold tracking-tight text-white">Translator Call</h1>
-                <p class="text-xs text-gray-400">Traducción de llamadas en tiempo real (P2P)</p>
+                <h1 id="uiTitle" class="text-2xl font-bold tracking-tight text-white">Translator Call</h1>
+                <p id="uiSubtitle" class="text-xs text-gray-400">Traducción de llamadas en tiempo real (P2P)</p>
             </div>
 
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Tu Nombre</label>
+                    <label id="uiLabelUsername" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">Tu Nombre</label>
                     <input type="text" id="inputUsername" placeholder="Ej. Samuel" 
                            class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-pink-500 transition">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
+                    <label id="uiLabelLang" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1.5">
                         Tu Idioma Base
                     </label>
                     <div class="relative">
-                        <select id="selectTargetLang" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white appearance-none focus:outline-none focus:border-pink-500 transition pr-10">
+                        <select id="selectTargetLang" onchange="updateUILanguage(this.value)" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white appearance-none focus:outline-none focus:border-pink-500 transition pr-10">
                             <option value="es" selected>Español 🇪🇸</option>
                             <option value="en">English 🇺🇸</option>
-                            <option value="fr">Français 🇫🇷</option>
-                            <option value="pt">Português 🇧🇷</option>
-                            <option value="de">Deutsch 🇩🇪</option>
-                            <option value="it">Italiano 🇮🇹</option>
                         </select>
                         <i class="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
                     </div>
                 </div>
 
                 <div class="pt-2">
-                    <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 text-center">Modo de Conexión</label>
+                    <label id="uiLabelMode" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2 text-center">Modo de Conexión</label>
                     <div class="grid grid-cols-2 gap-2 bg-gray-900 p-1 rounded-xl border border-gray-800">
                         <button type="button" id="tabCreate" onclick="switchMode('create')" class="py-2 rounded-lg text-xs font-semibold transition bg-pink-600 text-white">
                             Crear Sala
@@ -134,7 +133,7 @@
             </button>
 
             <div class="p-3 bg-gray-900/80 border border-gray-800 rounded-xl text-[11px] text-gray-400 leading-relaxed text-center">
-                <span>Traducción instantánea. Al pulsar el botón se solicitarán permisos de micrófono y cámara.</span>
+                <span id="uiFooterNotice">Traducción instantánea. Al pulsar el botón se solicitarán permisos de micrófono y cámara.</span>
             </div>
         </div>
     </div>
@@ -182,9 +181,9 @@
                 <video id="localVideo" autoplay muted playsinline class="w-full h-full object-cover mirror-video hidden"></video>
                 <div id="localVideoFallback" class="w-full h-full flex flex-col items-center justify-center bg-gray-900 text-gray-500 text-[10px]">
                     <i class="fa-solid fa-video-slash text-base mb-1"></i>
-                    <span>Cam Off</span>
+                    <span id="uiCamOffText">Cam Off</span>
                 </div>
-                <div class="absolute bottom-1 left-1.5 bg-black/60 px-1.5 py-0.5 rounded text-[9px] text-gray-200 font-medium backdrop-blur">
+                <div id="uiYouText" class="absolute bottom-1 left-1.5 bg-black/60 px-1.5 py-0.5 rounded text-[9px] text-gray-200 font-medium backdrop-blur">
                     Tú
                 </div>
             </div>
@@ -204,7 +203,7 @@
                     </div>
 
                     <p id="originalSpeechText" class="text-[11px] text-gray-400 italic min-h-[1.2rem] truncate">
-                        Habla naturalmente frente a la pantalla...
+                        Habla naturally frente a la pantalla...
                     </p>
 
                     <div class="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/10 mt-1">
@@ -236,6 +235,78 @@
     </div>
 
     <script>
+        // DICCIONARIO PARA TRADUCCIÓN COMPLETA DE LA INTERFAZ USUARIO (i18n)
+        const i18n = {
+            es: {
+                title: "Translator Call",
+                subtitle: "Traducción de llamadas en tiempo real (P2P)",
+                labelUsername: "Tu Nombre",
+                placeholderUsername: "Ej. Samuel",
+                labelLang: "Tu Idioma Base",
+                labelMode: "Modo de Conexión",
+                tabCreate: "Crear Sala",
+                tabJoin: "Unirme a Sala",
+                roomLabelCreate: "Código de Sala Creada",
+                roomLabelJoin: "Ingresa Código de la Sala",
+                placeholderRoom: "Ej. SALA-123",
+                btnRandom: "Azar",
+                btnStartCreate: "Crear e Iniciar Llamada",
+                btnStartJoin: "Unirme a la Llamada",
+                footerNotice: "Traducción instantánea. Al pulsar el botón se solicitarán permisos de micrófono y cámara.",
+                waitingUser: "Esperando usuario...",
+                waitingText: "Esperando...",
+                onlineText: "En Línea",
+                connectedText: "Llamada Conectada",
+                notFoundText: "Sala no encontrada",
+                noConnectionText: "Sin conexión",
+                disconnectedText: "Desconectado",
+                fallbackTitle: "Esperando que la otra persona se conecte...",
+                fallbackSubtext: "Comparte el código de la sala para iniciar la traducción.",
+                camOffText: "Cam Off",
+                youText: "Tú",
+                subtitleHeader: "TRADUCCIÓN EN TIEMPO REAL",
+                waitingSpeechTag: "Esperando voz...",
+                speechPlaceholder: "Habla naturalmente frente a la pantalla...",
+                translatedPlaceholder: "La traducción generada en voz y texto aparecerá aquí.",
+                micMutedText: "Micrófono silenciado.",
+                shareText: "¡Únete a mi videollamada traducida! Código de sala: "
+            },
+            en: {
+                title: "Translator Call",
+                subtitle: "Real-time call translation (P2P)",
+                labelUsername: "Your Name",
+                placeholderUsername: "e.g. Samuel",
+                labelLang: "Your Base Language",
+                labelMode: "Connection Mode",
+                tabCreate: "Create Room",
+                tabJoin: "Join Room",
+                roomLabelCreate: "Created Room Code",
+                roomLabelJoin: "Enter Room Code",
+                placeholderRoom: "e.g. ROOM-123",
+                btnRandom: "Random",
+                btnStartCreate: "Create & Start Call",
+                btnStartJoin: "Join Call",
+                footerNotice: "Instant translation. Pressing the button will request microphone and camera permissions.",
+                waitingUser: "Waiting for user...",
+                waitingText: "Waiting...",
+                onlineText: "Online",
+                connectedText: "Call Connected",
+                notFoundText: "Room not found",
+                noConnectionText: "No connection",
+                disconnectedText: "Disconnected",
+                fallbackTitle: "Waiting for the other person to connect...",
+                fallbackSubtext: "Share the room code to start translation.",
+                camOffText: "Cam Off",
+                youText: "You",
+                subtitleHeader: "REAL-TIME TRANSLATION",
+                waitingSpeechTag: "Waiting for speech...",
+                speechPlaceholder: "Speak naturally in front of the screen...",
+                translatedPlaceholder: "Generated speech and text translation will appear here.",
+                micMutedText: "Microphone muted.",
+                shareText: "Join my translated video call! Room code: "
+            }
+        };
+
         let localStream = null;
         let peerStreamForTransmission = null;
         let peer = null;
@@ -247,7 +318,7 @@
 
         let currentFacingMode = "user";
         let isMicMuted = false;
-        let isCamOff = false; // Cámara activa por defecto al iniciar
+        let isCamOff = false;
 
         let callSeconds = 0;
         let timerInterval = null;
@@ -256,19 +327,45 @@
         let isRecognizing = false;
         let lastProcessedText = "";
 
-        // Estado para segmentar el habla larga en fragmentos cortos que se
-        // traducen y envían de inmediato (ver initSpeechRecognition).
-        let interimBuffer = "";
-        let interimSentSoFar = "";
-        let interimPauseTimer = null;
-        let interimForceTimer = null;
-        const PAUSE_FLUSH_MS = 900;      // pausa natural del habla -> se envía lo dicho
-        const MAX_CHUNK_WAIT_MS = 4000;  // tope: nunca esperar más que esto sin enviar nada
+        // Control de acumulación de frases largas
+        let silenceTimer = null;
+        let currentAccumulatedSpeech = "";
 
-        // Cola de reproducción de voz (TTS) para que los fragmentos que
-        // llegan del otro lado se escuchen uno tras otro, sin cortarse.
-        let ttsQueue = [];
-        let ttsSpeaking = false;
+        function updateUILanguage(lang) {
+            const texts = i18n[lang] || i18n.es;
+
+            document.getElementById("uiTitle").textContent = texts.title;
+            document.getElementById("uiSubtitle").textContent = texts.subtitle;
+            document.getElementById("uiLabelUsername").textContent = texts.labelUsername;
+            document.getElementById("inputUsername").placeholder = texts.placeholderUsername;
+            document.getElementById("uiLabelLang").textContent = texts.labelLang;
+            document.getElementById("uiLabelMode").textContent = texts.labelMode;
+            document.getElementById("tabCreate").textContent = texts.tabCreate;
+            document.getElementById("tabJoin").textContent = texts.tabJoin;
+            
+            if (currentMode === "create") {
+                document.getElementById("roomCodeLabel").textContent = texts.roomLabelCreate;
+                document.getElementById("btnStartText").textContent = texts.btnStartCreate;
+            } else {
+                document.getElementById("roomCodeLabel").textContent = texts.roomLabelJoin;
+                document.getElementById("btnStartText").textContent = texts.btnStartJoin;
+            }
+
+            document.getElementById("inputRoomId").placeholder = texts.placeholderRoom;
+            document.getElementById("btnRandom").textContent = texts.btnRandom;
+            document.getElementById("uiFooterNotice").textContent = texts.footerNotice;
+
+            document.getElementById("remotePeerName").textContent = texts.waitingUser;
+            document.getElementById("statusText").textContent = texts.waitingText;
+            document.getElementById("fallbackText").textContent = texts.fallbackTitle;
+            document.getElementById("fallbackSubtext").textContent = texts.fallbackSubtext;
+            document.getElementById("uiCamOffText").textContent = texts.camOffText;
+            document.getElementById("uiYouText").textContent = texts.youText;
+            document.getElementById("subtitleHeader").textContent = texts.subtitleHeader;
+            document.getElementById("detectedLangTag").textContent = texts.waitingSpeechTag;
+            document.getElementById("originalSpeechText").textContent = texts.speechPlaceholder;
+            document.getElementById("translatedSubtitleText").textContent = texts.translatedPlaceholder;
+        }
 
         function loadVoices() {
             if ('speechSynthesis' in window) {
@@ -289,33 +386,33 @@
             currentMode = mode;
             const tabCreate = document.getElementById('tabCreate');
             const tabJoin = document.getElementById('tabJoin');
-            const roomLabel = document.getElementById('roomCodeLabel');
-            const btnStartText = document.getElementById('btnStartText');
-            const btnRandom = document.getElementById('btnRandom');
+            const texts = i18n[userConfig.targetLang || 'es'];
 
             if (mode === 'create') {
                 tabCreate.className = "py-2 rounded-lg text-xs font-semibold transition bg-pink-600 text-white";
                 tabJoin.className = "py-2 rounded-lg text-xs font-semibold transition text-gray-400 hover:text-white";
-                roomLabel.textContent = "Código de Sala Creada";
-                btnStartText.textContent = "Crear e Iniciar Llamada";
-                btnRandom.style.display = "block";
+                document.getElementById('roomCodeLabel').textContent = texts.roomLabelCreate;
+                document.getElementById('btnStartText').textContent = texts.btnStartCreate;
+                document.getElementById('btnRandom').style.display = "block";
                 generateRandomRoom();
             } else {
                 tabJoin.className = "py-2 rounded-lg text-xs font-semibold transition bg-pink-600 text-white";
                 tabCreate.className = "py-2 rounded-lg text-xs font-semibold transition text-gray-400 hover:text-white";
-                roomLabel.textContent = "Ingresa Código de la Sala";
-                btnStartText.textContent = "Unirme a la Llamada";
-                btnRandom.style.display = "none";
+                document.getElementById('roomCodeLabel').textContent = texts.roomLabelJoin;
+                document.getElementById('btnStartText').textContent = texts.btnStartJoin;
+                document.getElementById('btnRandom').style.display = "none";
                 document.getElementById('inputRoomId').value = "";
             }
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             generateRandomRoom();
+            updateUILanguage('es');
         });
 
         function shareCallLink() {
-            const shareText = `¡Únete a mi videollamada traducida! Código de sala: ${userConfig.roomId}`;
+            const texts = i18n[userConfig.targetLang || 'es'];
+            const shareText = `${texts.shareText}${userConfig.roomId}`;
             if (navigator.share) {
                 navigator.share({ title: 'Translator Call', text: shareText, url: window.location.href }).catch(() => {});
             } else {
@@ -329,8 +426,8 @@
             const roomInput = document.getElementById("inputRoomId").value.trim().toUpperCase();
             const targetLang = document.getElementById("selectTargetLang").value;
 
-            if (!nameInput) { alert("Ingresa tu nombre"); return; }
-            if (!roomInput) { alert("Ingresa código de sala"); return; }
+            if (!nameInput) { alert(targetLang === 'es' ? "Ingresa tu nombre" : "Enter your name"); return; }
+            if (!roomInput) { alert(targetLang === 'es' ? "Ingresa código de sala" : "Enter room code"); return; }
 
             userConfig = { name: nameInput, roomId: roomInput, targetLang: targetLang };
 
@@ -354,21 +451,13 @@
         }
 
         async function acquireCameraStream(facing) {
-            // Comprobación rápida: si el sistema no reporta ninguna cámara
-            // (equipos de escritorio sin webcam, por ejemplo), no perdemos
-            // tiempo reintentando ni llenamos la consola de errores; pasamos
-            // directo a modo solo-voz.
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const hasCamera = devices.some(d => d.kind === "videoinput");
                 if (!hasCamera) {
-                    console.warn("Este equipo no tiene ninguna cámara disponible; se continúa solo con audio/traducción.");
                     return null;
                 }
-            } catch (err) {
-                // Si ni siquiera se puede enumerar, igual probamos abrir la
-                // cámara directamente más abajo.
-            }
+            } catch (err) {}
 
             const attempts = [
                 { facingMode: { ideal: facing }, width: { ideal: 640 }, height: { ideal: 480 } },
@@ -380,8 +469,7 @@
                 try {
                     return await navigator.mediaDevices.getUserMedia({ audio: false, video: attempts[i] });
                 } catch (err) {
-                    console.warn(`Fallo cámara (intento ${i + 1}/${attempts.length}):`, err.name || err);
-                    await new Promise(r => setTimeout(r, 350));
+                    await new Promise(r => setTimeout(r, 200));
                 }
             }
 
@@ -450,7 +538,6 @@
                 localStream = camStream;
                 isCamOff = false;
             } else {
-                console.warn("No se pudo iniciar la cámara; continuando en modo solo traducción de voz.");
                 localStream = new MediaStream();
                 isCamOff = true;
             }
@@ -474,7 +561,8 @@
             peer = new Peer(myPeerId, { debug: 1 });
 
             peer.on("open", () => {
-                updateStatusBadge(currentMode === "create" ? "Esperando usuario..." : "Conectando...", "bg-amber-400", "text-amber-400");
+                const texts = i18n[userConfig.targetLang];
+                updateStatusBadge(currentMode === "create" ? texts.waitingUser : texts.waitingText, "bg-amber-400", "text-amber-400");
                 if (currentMode === "join") {
                     setTimeout(() => { connectToPeer(targetPeerId); }, 1000);
                 }
@@ -490,14 +578,14 @@
             peer.on("connection", conn => { setupDataChannel(conn); });
 
             peer.on("error", err => {
-                console.warn("Error de PeerJS:", err.type, err);
+                const texts = i18n[userConfig.targetLang];
                 if (err.type === 'unavailable-id') {
-                    alert("El código de sala ya está en uso. Prueba uniéndote o cambiando código.");
+                    alert(userConfig.targetLang === 'es' ? "El código de sala ya está en uso." : "Room code is already in use.");
                 } else if (err.type === 'peer-unavailable') {
-                    updateStatusBadge("Sala no encontrada", "bg-red-500", "text-red-400");
-                    alert("No se encontró a nadie con ese código de sala. Verifica que sea correcto.");
+                    updateStatusBadge(texts.notFoundText, "bg-red-500", "text-red-400");
+                    alert(userConfig.targetLang === 'es' ? "No se encontró a nadie con ese código de sala." : "Room not found.");
                 } else if (err.type === 'network' || err.type === 'server-error' || err.type === 'disconnected') {
-                    updateStatusBadge("Sin conexión", "bg-red-500", "text-red-400");
+                    updateStatusBadge(texts.noConnectionText, "bg-red-500", "text-red-400");
                 }
             });
         }
@@ -516,7 +604,8 @@
             dataConnection = conn;
 
             dataConnection.on("open", () => {
-                updateStatusBadge("En Línea", "bg-emerald-500", "text-emerald-400");
+                const texts = i18n[userConfig.targetLang];
+                updateStatusBadge(texts.onlineText, "bg-emerald-500", "text-emerald-400");
                 dataConnection.send(JSON.stringify({
                     type: "META",
                     name: userConfig.name,
@@ -538,7 +627,7 @@
                 }
 
                 if (data.type === "SPEECH_TEXT") {
-                    await processIncomingSpeech(data.text, data.sourceLang, data.translated, data.translatedLang);
+                    await processIncomingSpeech(data.text, data.sourceLang);
                 }
             });
 
@@ -552,13 +641,15 @@
                 remoteVideo.play().catch(e => console.warn("Autoplay remote video warning:", e));
             }
             document.getElementById("remoteVideoFallback").classList.add("hidden");
-            updateStatusBadge("Llamada Conectada", "bg-emerald-500", "text-emerald-400");
+            const texts = i18n[userConfig.targetLang];
+            updateStatusBadge(texts.connectedText, "bg-emerald-500", "text-emerald-400");
         }
 
         function handleRemoteDisconnect() {
+            const texts = i18n[userConfig.targetLang];
             document.getElementById("remoteVideoFallback").classList.remove("hidden");
-            document.getElementById("remotePeerName").textContent = "Desconectado";
-            updateStatusBadge("Desconectado", "bg-red-500", "text-red-400");
+            document.getElementById("remotePeerName").textContent = texts.disconnectedText;
+            updateStatusBadge(texts.disconnectedText, "bg-red-500", "text-red-400");
         }
 
         function updateStatusBadge(text, dotBg, textColor) {
@@ -567,12 +658,12 @@
             badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotBg}"></span><span>${text}</span>`;
         }
 
-        /* RECONOCIMIENTO DE VOZ OPTIMIZADO PARA MÓVILES */
+        /* RECONOCIMIENTO DE VOZ EXCLUSIVO PARA ESPAÑOL E INGLÉS */
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
             if (!SpeechRecognition) {
-                document.getElementById("originalSpeechText").textContent = "El navegador no soporta reconocimiento de voz.";
+                document.getElementById("originalSpeechText").textContent = "Speech recognition not supported.";
                 return;
             }
 
@@ -581,15 +672,14 @@
             }
 
             speechRecognizer = new SpeechRecognition();
-            speechRecognizer.lang = getRecognitionLocale(userConfig.targetLang);
+            speechRecognizer.lang = userConfig.targetLang === 'en' ? "en-US" : "es-ES";
             speechRecognizer.continuous = true;
             speechRecognizer.interimResults = true;
 
             speechRecognizer.onstart = () => {
                 isRecognizing = true;
-                interimBuffer = "";
-                interimSentSoFar = "";
-                document.getElementById("originalSpeechText").textContent = "Escuchando tu voz...";
+                const texts = i18n[userConfig.targetLang];
+                document.getElementById("originalSpeechText").textContent = texts.speechPlaceholder;
             };
 
             speechRecognizer.onresult = (event) => {
@@ -597,105 +687,53 @@
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript;
-
                     if (event.results[i].isFinal) {
-                        // Resultado final del motor: si ya habíamos enviado
-                        // parte de esta frase por pausa/tope de tiempo, solo
-                        // mandamos lo que falte para no repetir contenido.
-                        const finalFull = transcript.trim();
-                        let toSend = finalFull;
-                        if (interimSentSoFar && finalFull.startsWith(interimSentSoFar)) {
-                            toSend = finalFull.slice(interimSentSoFar.length).trim();
-                        }
-                        if (toSend && toSend !== lastProcessedText) {
-                            lastProcessedText = toSend;
-                            sendSpeechForTranslation(toSend);
-                        }
-                        interimBuffer = "";
-                        interimSentSoFar = "";
-                        clearTimeout(interimPauseTimer);
-                        clearTimeout(interimForceTimer);
-                        interimForceTimer = null;
+                        currentAccumulatedSpeech += " " + transcript;
                     } else {
                         interimText += transcript;
                     }
                 }
 
-                if (interimText) {
-                    // Si el texto interino "reinició" (ya no empieza con lo
-                    // que habíamos enviado), es una frase nueva.
-                    if (!interimText.startsWith(interimSentSoFar)) {
-                        interimSentSoFar = "";
-                    }
-                    interimBuffer = interimText;
-                    document.getElementById("originalSpeechText").textContent = `Escuchando: ${interimBuffer}`;
-                    scheduleInterimFlush();
+                const fullSpokenText = (currentAccumulatedSpeech + " " + interimText).trim();
+
+                if (fullSpokenText.length > 0) {
+                    document.getElementById("originalSpeechText").textContent = `${fullSpokenText}`;
+
+                    clearTimeout(silenceTimer);
+                    silenceTimer = setTimeout(() => {
+                        if (fullSpokenText.length > 0 && fullSpokenText !== lastProcessedText) {
+                            lastProcessedText = fullSpokenText;
+                            currentAccumulatedSpeech = "";
+                            sendSpeechForTranslation(fullSpokenText);
+                        }
+                    }, 1200);
                 }
             };
 
             speechRecognizer.onerror = (event) => {
-                console.warn("Aviso STT:", event.error);
                 isRecognizing = false;
-
                 if (event.error === 'not-allowed') {
-                    document.getElementById("originalSpeechText").textContent = "Permiso de micrófono denegado para reconocimiento.";
+                    document.getElementById("originalSpeechText").textContent = "Mic permission denied.";
+                } else if (event.error === 'network') {
+                    setTimeout(() => { safeStartSTT(); }, 2000);
                 }
-                // Nota: "onend" se dispara siempre justo después de "onerror"
-                // y ya se encarga de reiniciar el reconocimiento (más abajo).
-                // Antes también se reiniciaba aquí para el error 'network',
-                // y esa doble programación era justo lo que provocaba el
-                // "InvalidStateError: recognition has already started".
             };
 
             speechRecognizer.onend = () => {
                 isRecognizing = false;
-                // El motor puede reiniciarse solo (común en móviles); antes
-                // de eso, enviamos lo último dicho para no perder palabras.
-                flushInterimBuffer();
+                if (currentAccumulatedSpeech.trim().length > 0 && currentAccumulatedSpeech.trim() !== lastProcessedText) {
+                    let pendingText = currentAccumulatedSpeech.trim();
+                    lastProcessedText = pendingText;
+                    currentAccumulatedSpeech = "";
+                    sendSpeechForTranslation(pendingText);
+                }
+
                 if (!isMicMuted) {
-                    setTimeout(() => { safeStartSTT(); }, 500);
+                    setTimeout(() => { safeStartSTT(); }, 400);
                 }
             };
 
             safeStartSTT();
-        }
-
-        // Idioma del reconocimiento de voz según el idioma base del usuario
-        // (antes quedaba fijo en español sin importar lo que se eligiera).
-        function getRecognitionLocale(langCode) {
-            const map = { es: "es-ES", en: "en-US", fr: "fr-FR", pt: "pt-BR", de: "de-DE", it: "it-IT" };
-            return map[langCode] || "es-ES";
-        }
-
-        // Programa el envío del fragmento interino tras una pausa natural
-        // al hablar, y garantiza un envío igualmente si la persona habla
-        // sin pausas durante mucho tiempo (evita esperas largas).
-        function scheduleInterimFlush() {
-            clearTimeout(interimPauseTimer);
-            interimPauseTimer = setTimeout(flushInterimBuffer, PAUSE_FLUSH_MS);
-
-            if (!interimForceTimer) {
-                interimForceTimer = setTimeout(() => {
-                    interimForceTimer = null;
-                    flushInterimBuffer();
-                }, MAX_CHUNK_WAIT_MS);
-            }
-        }
-
-        // Envía solo la parte del fragmento interino que aún no se había
-        // mandado, para conversaciones largas sin reenviar todo el texto
-        // acumulado (lo que antes causaba demoras crecientes).
-        function flushInterimBuffer() {
-            clearTimeout(interimPauseTimer);
-            clearTimeout(interimForceTimer);
-            interimForceTimer = null;
-
-            const pending = interimBuffer.slice(interimSentSoFar.length).trim();
-            if (pending) {
-                interimSentSoFar = interimBuffer;
-                lastProcessedText = interimBuffer;
-                sendSpeechForTranslation(pending);
-            }
         }
 
         let sttStarting = false;
@@ -724,95 +762,51 @@
                 dataConnection.send(JSON.stringify({
                     type: "SPEECH_TEXT",
                     text: text,
-                    sourceLang: detected,
-                    // Mandamos la traducción ya lista: el receptor se ahorra
-                    // otra llamada de red completa y la escucha más rápido.
-                    translated: translated,
-                    translatedLang: targetLang
+                    sourceLang: detected
                 }));
             }
         }
 
-        // Detecta el idioma contando coincidencias de palabras completas
-        // (con límites de palabra \b) por idioma, en vez de quedarse con el
-        // primer patrón que matcheara: eso antes daba falsos positivos
-        // (p. ej. una sola palabra suelta hacía ganar a un idioma aunque la
-        // frase fuera mayormente de otro). Prioriza precisión en
-        // español↔inglés, que es el caso de uso principal.
+        /* DETECCIÓN DE IDIOMA EXCLUSIVA Y PRECISA (ESPAÑOL vs INGLÉS) */
         function detectLanguage(text) {
             const lower = ` ${text.toLowerCase()} `;
+            
+            const esMatches = (lower.match(/\b(hola|gracias|necesito|quiero|puedo|podria|podría|donde|dónde|como|cómo|estoy|estás|usted|mañana|ayuda|buenas|buenos|que|qué|por favor|si|sí|bien|mal|tengo|tienes|casa|trabajo|hoy|ahora|cuando|cuándo|porque|porqué|para|pero|también|muy|mucho|poco|dientes|cabello|canas|instale|casi|todos|mis)\b/g) || []).length;
+            const enMatches = (lower.match(/\b(hello|hi|hey|thanks|thank|need|want|where|how|you|help|please|good|yes|today|now|work|have|has|the|is|are|what|when|why|because|but|also|very|much|little|teeth|hair|almost|my|your)\b/g) || []).length;
 
-            const langPatterns = {
-                es: /\b(hola|gracias|necesito|quiero|puedo|podria|podría|donde|dónde|como|cómo|estoy|estás|usted|mañana|ayuda|buenas|buenos|que|qué|por favor|si|sí|bien|mal|tengo|tienes|casa|trabajo|hoy|ahora|cuando|cuándo|porque|porqué|para|pero|también|muy|mucho|poco)\b/g,
-                en: /\b(hello|hi|hey|thanks|thank|need|want|where|how|you|help|please|good|yes|today|now|work|have|has|the|is|are|what|when|why|because|but|also|very|much|little)\b/g,
-                fr: /\b(bonjour|merci|comment|vous|aide|oui|non|je|tu|le|la|les|est|pour)\b/g,
-                pt: /\b(ola|olá|obrigado|obrigada|voce|você|preciso|ajuda|sim|nao|não|hoje|para)\b/g,
-                de: /\b(hallo|danke|bitte|hilfe|wie|ja|nein|ich|du|und|ist)\b/g,
-                it: /\b(ciao|grazie|bisogno|voglio|dove|come|aiuto|buongiorno|si|no|per)\b/g
-            };
+            if (esMatches > enMatches) return "es";
+            if (enMatches > esMatches) return "en";
 
-            let bestLang = null;
-            let bestScore = 0;
-
-            for (const lang in langPatterns) {
-                const matches = lower.match(langPatterns[lang]);
-                const score = matches ? matches.length : 0;
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestLang = lang;
-                }
-            }
-
-            // Sin coincidencias claras: asumimos el idioma base que la
-            // persona configuró al iniciar la llamada.
-            return bestLang || userConfig.targetLang;
+            return userConfig.targetLang || "es";
         }
 
         function getDestinationLanguage(source) {
-            if (source === "es") return "en";
-            if (["en", "fr", "pt", "de", "it"].includes(source)) return "es";
-            return userConfig.targetLang;
+            return source === "es" ? "en" : "es";
         }
 
-        async function processIncomingSpeech(speechText, sourceLang, precomputedTranslation, precomputedTargetLang) {
+        async function processIncomingSpeech(speechText, sourceLang) {
             let target = getDestinationLanguage(sourceLang);
-            let translated;
-
-            if (precomputedTranslation && precomputedTargetLang === target) {
-                // El emisor ya tradujo este texto al idioma que necesitamos:
-                // usamos eso directo en vez de pedirlo otra vez a la red.
-                translated = precomputedTranslation;
-            } else {
-                translated = await translateText(speechText, sourceLang, target);
-            }
-
+            let translated = await translateText(speechText, sourceLang, target);
             showTranslation(translated);
             speakText(translated, target);
-        }
-
-        // Petición con tope de tiempo: si el servicio de traducción tarda
-        // demasiado (red lenta/inestable), abortamos y probamos el
-        // siguiente en vez de dejar la conversación esperando.
-        function fetchWithTimeout(url, ms = 4000) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), ms);
-            return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
         }
 
         async function translateText(text, from, to) {
             if (!text) return "";
             try {
                 let gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
-                let res = await fetchWithTimeout(gUrl);
+                let res = await fetch(gUrl);
                 let json = await res.json();
-                if (json && json[0] && json[0][0] && json[0][0][0]) {
-                    return json[0][0][0];
+                
+                if (json && json[0] && Array.isArray(json[0])) {
+                    let fullTranslation = json[0].map(item => item[0]).filter(Boolean).join(" ");
+                    if (fullTranslation.trim().length > 0) return fullTranslation.trim();
                 }
             } catch (e1) {}
 
             try {
                 let mUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`;
-                let res = await fetchWithTimeout(mUrl);
+                let res = await fetch(mUrl);
                 let json = await res.json();
                 if (json && json.responseData && json.responseData.translatedText) {
                     return json.responseData.translatedText;
@@ -833,49 +827,37 @@
         function speakText(text, lang) {
             if (!('speechSynthesis' in window) || !text) return;
 
-            let utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang === "es" ? "es-ES" : (lang === "en" ? "en-US" : lang);
+            window.speechSynthesis.cancel();
+            
+            const targetLang = lang === "es" ? "es-ES" : "en-US";
 
             if (availableVoices.length === 0) {
                 availableVoices = window.speechSynthesis.getVoices();
             }
 
             let matchingVoice = availableVoices.find(v => v.lang.toLowerCase().startsWith(lang));
-            if (matchingVoice) {
-                utterance.voice = matchingVoice;
-            }
 
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
+            const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
 
-            // En vez de cancelar lo que se está hablando (como antes), lo
-            // encolamos: así, en una conversación larga con varios
-            // fragmentos seguidos, se escuchan uno tras otro sin cortes.
-            utterance.onend = utterance.onerror = () => {
-                ttsSpeaking = false;
-                playNextInQueue();
-            };
+            sentences.forEach(sentence => {
+                const cleanSentence = sentence.trim();
+                if (cleanSentence.length === 0) return;
 
-            ttsQueue.push(utterance);
-            // Si se acumula demasiado (llegan fragmentos más rápido de lo
-            // que se pueden hablar), descartamos lo más viejo para no
-            // quedar "atrasados" respecto a la conversación real.
-            if (ttsQueue.length > 6) ttsQueue.shift();
+                let utterance = new SpeechSynthesisUtterance(cleanSentence);
+                utterance.lang = targetLang;
+                if (matchingVoice) utterance.voice = matchingVoice;
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
 
-            playNextInQueue();
-        }
-
-        function playNextInQueue() {
-            if (ttsSpeaking || ttsQueue.length === 0) return;
-            ttsSpeaking = true;
-            const next = ttsQueue.shift();
-            window.speechSynthesis.speak(next);
+                window.speechSynthesis.speak(utterance);
+            });
         }
 
         function toggleMicrophone() {
             if (!localStream) return;
             const btn = document.getElementById('btnMic');
+            const texts = i18n[userConfig.targetLang];
 
             isMicMuted = !isMicMuted;
 
@@ -883,14 +865,13 @@
                 btn.classList.add('bg-red-600');
                 btn.classList.remove('bg-emerald-600');
                 btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
-                document.getElementById('originalSpeechText').textContent = 'Micrófono silenciado.';
-                flushInterimBuffer(); // no perder lo último dicho antes de silenciar
+                document.getElementById('originalSpeechText').textContent = texts.micMutedText;
                 if (speechRecognizer) try { speechRecognizer.stop(); } catch(e){}
             } else {
                 btn.classList.remove('bg-red-600');
                 btn.classList.add('bg-emerald-600');
                 btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
-                document.getElementById('originalSpeechText').textContent = 'Escuchando tu voz...';
+                document.getElementById('originalSpeechText').textContent = texts.speechPlaceholder;
                 initSpeechRecognition();
             }
         }
@@ -913,7 +894,7 @@
 
                     if (!newStream) {
                         btn.innerHTML = originalIcon;
-                        alert('No se pudo activar la cámara. Verifica que otra aplicación no la esté utilizando.');
+                        alert(userConfig.targetLang === 'es' ? 'No se pudo activar la cámara.' : 'Could not activate camera.');
                         return;
                     }
 
@@ -949,7 +930,7 @@
             if (btnSwitch) btnSwitch.disabled = false;
 
             if (!newStream) {
-                alert('No se pudo cambiar de cámara.');
+                alert(userConfig.targetLang === 'es' ? 'No se pudo cambiar de cámara.' : 'Could not switch camera.');
                 return;
             }
 
@@ -977,14 +958,11 @@
         }
 
         function hangupCall() {
-            if (confirm('¿Deseas finalizar la llamada?')) {
+            const msg = userConfig.targetLang === 'es' ? '¿Deseas finalizar la llamada?' : 'Do you want to end the call?';
+            if (confirm(msg)) {
                 if (localStream) localStream.getTracks().forEach(t => t.stop());
                 if (peerStreamForTransmission) peerStreamForTransmission.getTracks().forEach(t => t.stop());
                 if (speechRecognizer) try { speechRecognizer.stop(); } catch(e){}
-                clearTimeout(interimPauseTimer);
-                clearTimeout(interimForceTimer);
-                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-                ttsQueue = [];
                 if (peer) peer.destroy();
                 clearInterval(timerInterval);
                 location.reload();
