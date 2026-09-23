@@ -188,7 +188,7 @@
                 </div>
             </div>
 
-            <!-- CONTENEDOR DE SUBTÍTULOS Y CONTADORES DE PALABRAS / TIEMPO -->
+            <!-- CONTENEDOR DE SUBTÍTULOS Y CONTADOR DE PALABRAS -->
             <div class="absolute bottom-24 sm:bottom-28 left-3 right-3 sm:left-12 sm:right-12 max-w-3xl mx-auto z-30 pointer-events-none">
                 <div class="glass-pill p-3.5 sm:p-4 rounded-2xl border border-white/15 shadow-2xl backdrop-blur-xl space-y-2">
                     
@@ -205,11 +205,10 @@
                         </span>
                     </div>
 
-                    <!-- BARRA DE PROGRESO Y CONTADORES -->
+                    <!-- BARRA DE PROGRESO Y CONTADOR DE PALABRAS -->
                     <div class="space-y-1">
                         <div class="flex justify-between items-center text-[10px] font-mono text-gray-300">
-                            <span id="wordCounterText">Palabras: 0 / 120</span>
-                            <span id="timeCounterText">Tiempo: 0s / 60s</span>
+                            <span id="wordCounterText">Palabras: 0 / 200</span>
                         </div>
                         <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden border border-white/10">
                             <div id="turnProgressBar" class="h-full bg-gradient-to-r from-pink-500 to-emerald-400 w-0 transition-all duration-300"></div>
@@ -218,15 +217,15 @@
 
                     <!-- TEXTO ORIGINAL EN TIEMPO REAL -->
                     <div>
-                        <p id="originalSpeechText" class="text-[11px] sm:text-xs text-gray-300 italic max-h-16 overflow-y-auto leading-relaxed">
-                            Puedes hablar continuamente hasta 1 minuto o 120 palabras...
+                        <p id="originalSpeechText" class="text-[11px] sm:text-xs text-gray-300 italic max-h-20 overflow-y-auto leading-relaxed">
+                            Puedes hablar libremente hasta 200 palabras por mensaje...
                         </p>
                     </div>
 
                     <!-- TRADUCCIÓN GENERADA -->
                     <div class="bg-black/60 p-2.5 sm:p-3 rounded-xl border border-white/10">
                         <p id="translatedSubtitleText" class="text-xs sm:text-base font-semibold text-white leading-snug subtitle-fade">
-                            La traducción generada se mostrará aquí al finalizar tu bloque de voz.
+                            La traducción generada se mostrará aquí al finalizar tu frase.
                         </p>
                     </div>
                 </div>
@@ -285,8 +284,8 @@
                 listeningTurn: "ESCUCHANDO TURNO DE HABLA",
                 sendingTurn: "TRADUCIENDO Y ENVIANDO...",
                 sentTurn: "¡ENVIADO! PUEDES HABLAR DE NUEVO",
-                speechPlaceholder: "Puedes hablar continuamente hasta 1 minuto o 120 palabras...",
-                translatedPlaceholder: "La traducción generada se mostrará aquí al finalizar tu bloque de voz.",
+                speechPlaceholder: "Puedes hablar libremente hasta 200 palabras por mensaje...",
+                translatedPlaceholder: "La traducción generada se mostrará aquí al finalizar tu frase.",
                 micMutedText: "Micrófono silenciado.",
                 shareText: "¡Únete a mi videollamada traducida! Código de sala: "
             },
@@ -320,7 +319,7 @@
                 listeningTurn: "LISTENING SPEECH TURN",
                 sendingTurn: "TRANSLATING & SENDING...",
                 sentTurn: "SENT! YOU CAN SPEAK AGAIN",
-                speechPlaceholder: "You can speak continuously up to 1 minute or 120 words...",
+                speechPlaceholder: "You can speak freely up to 200 words per message...",
                 translatedPlaceholder: "Generated translation will appear here after finishing your speech block.",
                 micMutedText: "Microphone muted.",
                 shareText: "Join my translated video call! Room code: "
@@ -347,10 +346,7 @@
         let isRecognizing = false;
 
         // PARÁMETROS DEL BÚFER DE HABLA AMPLIADO
-        const MAX_WORDS = 120;
-        const MAX_TIME_SECONDS = 60;
-        let turnTimeElapsed = 0;
-        let turnTimer = null;
+        const MAX_WORDS = 200;
         let silenceTimer = null;
         let isProcessingTurn = false;
 
@@ -679,7 +675,7 @@
             badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotBg}"></span><span>${text}</span>`;
         }
 
-        /* LÓGICA AVANZADA DE RECONOCIMIENTO DE VOZ CON BÚFER DE 1 MINUTO Y INDICADOR DE PALABRAS */
+        /* LÓGICA DE RECONOCIMIENTO DE VOZ ANTI-DUPLICACIÓN (MÓVILES Y DESKTOP) */
 
         function setTurnStatusUI(state, text) {
             const dot = document.getElementById("turnStatusDot");
@@ -706,27 +702,126 @@
             return str.trim().split(/\s+/).length;
         }
 
-        function sanitizeAndDeduplicate(text) {
-            if (!text) return "";
-            let cleaned = text.replace(/\s+/g, " ").trim();
-            // Elimina secuencias de frases idénticas repetidas por el bug de STT
-            const words = cleaned.split(" ");
-            const dedupedWords = [];
-            for (let i = 0; i < words.length; i++) {
-                if (i > 0 && words[i].toLowerCase() === words[i-1].toLowerCase() && words[i].length > 2) {
-                    continue;
-                }
-                dedupedWords.push(words[i]);
+        // ALGORITMO ANTI-DUPLICACIÓN: Agrega fragmentos evitando repetición de contexto en móviles
+        function appendToBuffer(newText) {
+            newText = newText.trim();
+            if (!newText) return;
+
+            if (finalSentencesBuffer.length === 0) {
+                finalSentencesBuffer.push(newText);
+                return;
             }
-            return dedupedWords.join(" ");
+
+            let lastIdx = finalSentencesBuffer.length - 1;
+            let lastPhrase = finalSentencesBuffer[lastIdx];
+            let lowerNew = newText.toLowerCase();
+            let lowerLast = lastPhrase.toLowerCase();
+
+            // 1. Coincidencia exacta o frase ya contenida
+            if (lowerLast === lowerNew || lowerLast.endsWith(lowerNew)) {
+                return;
+            }
+
+            // 2. Comportamiento móvil Chrome/Edge: la nueva cadena incluye el fragmento anterior
+            if (lowerNew.startsWith(lowerLast) || lowerNew.includes(lowerLast)) {
+                finalSentencesBuffer[lastIdx] = newText;
+                return;
+            }
+
+            // 3. Detección de solapamiento por palabras para evitar repeticiones consecutivas
+            let wordsLast = lastPhrase.split(/\s+/);
+            let wordsNew = newText.split(/\s+/);
+
+            let overlap = 0;
+            for (let len = Math.min(wordsLast.length, wordsNew.length); len > 0; len--) {
+                let tail = wordsLast.slice(-len).join(" ").toLowerCase();
+                let head = wordsNew.slice(0, len).join(" ").toLowerCase();
+                if (tail === head) {
+                    overlap = len;
+                    break;
+                }
+            }
+
+            if (overlap > 0) {
+                let addedWords = wordsNew.slice(overlap).join(" ");
+                if (addedWords) {
+                    finalSentencesBuffer[lastIdx] = lastPhrase + " " + addedWords;
+                }
+            } else {
+                finalSentencesBuffer.push(newText);
+            }
+        }
+
+        // Limpia el texto provisional en vivo para que no re-escriba lo ya confirmado
+        function getCleanInterim(interimRaw) {
+            if (!interimRaw) return "";
+            let interim = interimRaw.trim();
+            let fullFinal = finalSentencesBuffer.join(" ").trim();
+            if (!fullFinal) return interim;
+
+            let lowerInterim = interim.toLowerCase();
+            let lowerFinal = fullFinal.toLowerCase();
+
+            if (lowerInterim.startsWith(lowerFinal)) {
+                return interim.slice(fullFinal.length).trim();
+            }
+
+            if (lowerFinal.includes(lowerInterim)) {
+                return "";
+            }
+
+            let wordsFinal = fullFinal.split(/\s+/);
+            let wordsInterim = interim.split(/\s+/);
+
+            let overlap = 0;
+            for (let len = Math.min(wordsFinal.length, wordsInterim.length); len > 0; len--) {
+                let tail = wordsFinal.slice(-len).join(" ").toLowerCase();
+                let head = wordsInterim.slice(0, len).join(" ").toLowerCase();
+                if (tail === head) {
+                    overlap = len;
+                    break;
+                }
+            }
+
+            if (overlap > 0) {
+                return wordsInterim.slice(overlap).join(" ");
+            }
+
+            return interim;
+        }
+
+        // Elimina bucles repetitivos de secuencias de palabras (ej. "amarillo rojo amarillo rojo")
+        function sanitizeWordRepetitions(text) {
+            if (!text) return "";
+            let words = text.trim().split(/\s+/);
+            if (words.length <= 1) return text;
+
+            let cleanedWords = [...words];
+            let changed = true;
+
+            while (changed) {
+                changed = false;
+                for (let n = 1; n <= 4; n++) {
+                    for (let i = 0; i <= cleanedWords.length - 2 * n; i++) {
+                        let chunk1 = cleanedWords.slice(i, i + n).join(" ").toLowerCase();
+                        let chunk2 = cleanedWords.slice(i + n, i + 2 * n).join(" ").toLowerCase();
+                        if (chunk1 === chunk2 && chunk1.length > 1) {
+                            cleanedWords.splice(i + n, n);
+                            changed = true;
+                            break;
+                        }
+                    }
+                    if (changed) break;
+                }
+            }
+            return cleanedWords.join(" ");
         }
 
         function getFullSpokenText() {
-            let combined = finalSentencesBuffer.join(" ");
-            if (currentInterimText.trim()) {
-                combined += " " + currentInterimText.trim();
-            }
-            return sanitizeAndDeduplicate(combined);
+            let finalStr = finalSentencesBuffer.join(" ").trim();
+            let interimStr = getCleanInterim(currentInterimText);
+            let combined = finalStr ? (interimStr ? finalStr + " " + interimStr : finalStr) : interimStr;
+            return sanitizeWordRepetitions(combined);
         }
 
         function updateBufferUI() {
@@ -734,13 +829,9 @@
             const words = countWords(fullText);
 
             document.getElementById("wordCounterText").textContent = `Palabras: ${words} / ${MAX_WORDS}`;
-            document.getElementById("timeCounterText").textContent = `Tiempo: ${turnTimeElapsed}s / ${MAX_TIME_SECONDS}s`;
 
-            const wordPct = (words / MAX_WORDS) * 100;
-            const timePct = (turnTimeElapsed / MAX_TIME_SECONDS) * 100;
-            const maxPct = Math.min(Math.max(wordPct, timePct), 100);
-
-            document.getElementById("turnProgressBar").style.width = `${maxPct}%`;
+            const wordPct = Math.min((words / MAX_WORDS) * 100, 100);
+            document.getElementById("turnProgressBar").style.width = `${wordPct}%`;
 
             if (fullText.length > 0) {
                 document.getElementById("originalSpeechText").textContent = fullText;
@@ -749,23 +840,9 @@
             }
         }
 
-        function startTurnTimer() {
-            if (turnTimer) return;
-            turnTimeElapsed = 0;
-            turnTimer = setInterval(() => {
-                turnTimeElapsed++;
-                updateBufferUI();
-                if (turnTimeElapsed >= MAX_TIME_SECONDS) {
-                    finishAndSendTurn("Límite de tiempo alcanzado (60s)");
-                }
-            }, 1000);
-        }
-
         function resetSpeechBuffer() {
             finalSentencesBuffer = [];
             currentInterimText = "";
-            turnTimeElapsed = 0;
-            if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
             if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
             updateBufferUI();
         }
@@ -774,7 +851,7 @@
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
             if (!SpeechRecognition) {
-                document.getElementById("originalSpeechText").textContent = "Speech recognition not supported.";
+                document.getElementById("originalSpeechText").textContent = "Speech recognition not supported on this browser.";
                 return;
             }
 
@@ -795,15 +872,10 @@
             speechRecognizer.onresult = (event) => {
                 if (isProcessingTurn) return;
 
-                startTurnTimer();
-
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        const trimmed = transcript.trim();
-                        if (trimmed && finalSentencesBuffer[finalSentencesBuffer.length - 1] !== trimmed) {
-                            finalSentencesBuffer.push(trimmed);
-                        }
+                        appendToBuffer(transcript);
                         currentInterimText = "";
                     } else {
                         currentInterimText = transcript;
@@ -816,17 +888,17 @@
                 const wordCount = countWords(fullText);
 
                 if (wordCount >= MAX_WORDS) {
-                    finishAndSendTurn("Límite de palabras alcanzado (120)");
+                    finishAndSendTurn();
                     return;
                 }
 
-                // Pausa de silencio más holgada (2.5 segundos) para no cortar frases largas
+                // Envío automático tras 3 segundos de silencio absoluto
                 clearTimeout(silenceTimer);
                 silenceTimer = setTimeout(() => {
                     if (wordCount > 0 && !isProcessingTurn) {
-                        finishAndSendTurn("Pausa detectada");
+                        finishAndSendTurn();
                     }
-                }, 2500);
+                }, 3000);
             };
 
             speechRecognizer.onerror = (event) => {
@@ -861,12 +933,11 @@
             }
         }
 
-        async function finishAndSendTurn(reason) {
+        async function finishAndSendTurn() {
             if (isProcessingTurn) return;
             isProcessingTurn = true;
 
             clearTimeout(silenceTimer);
-            if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
 
             const fullSpeech = getFullSpokenText();
 
@@ -912,8 +983,8 @@
 
         function detectLanguage(text) {
             const lower = ` ${text.toLowerCase()} `;
-            const esMatches = (lower.match(/\b(hola|gracias|necesito|quiero|puedo|podria|podría|donde|dónde|como|cómo|estoy|estás|usted|mañana|ayuda|buenas|buenos|que|qué|por favor|si|sí|bien|mal|tengo|tienes|casa|trabajo|hoy|ahora|cuando|cuándo|porque|porqué|para|pero|también|muy|mucho|poco|dientes|cabello|canas|instale|casi|todos|mis|noche|brisa|canta|sombra|luz|bosque|encanto|alba|aire|pensamiento)\b/g) || []).length;
-            const enMatches = (lower.match(/\b(under|blue|flash|clear|night|rises|singer|breeze|never|stops|searching|shadow|light|illuminates|face|while|happy|forest|prepares|charm|dawn|arrives|bringing|gentle|breath|full|space|joy|flying|life|always|following|wind|free|awake|pure|thought)\b/g) || []).length;
+            const esMatches = (lower.match(/\b(hola|gracias|necesito|quiero|puedo|podria|podría|donde|dónde|como|cómo|estoy|estás|usted|mañana|ayuda|buenas|buenos|que|qué|por favor|si|sí|bien|mal|tengo|tienes|casa|trabajo|hoy|ahora|cuando|cuándo|porque|porqué|para|pero|también|muy|mucho|poco|dientes|cabello|canas|instale|casi|todos|mis|noche|brisa|canta|sombra|luz|bosque|encanto|alba|aire|pensamiento|amarillo|rojo|azul|rosa|recogio|recogió)\b/g) || []).length;
+            const enMatches = (lower.match(/\b(under|blue|flash|clear|night|rises|singer|breeze|never|stops|searching|shadow|light|illuminates|face|while|happy|forest|prepares|charm|dawn|arrives|bringing|gentle|breath|full|space|joy|flying|life|always|following|wind|free|awake|pure|thought|yellow|red)\b/g) || []).length;
 
             if (esMatches > enMatches) return "es";
             if (enMatches > esMatches) return "en";
