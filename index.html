@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Live Call Translator - WebRTC</title>
     
-    <!-- Favicon dinámico en formato SVG para eliminar el error 404 -->
+    <!-- Favicon dinámico SVG -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
 
     <!-- Tailwind CSS CDN -->
@@ -38,7 +38,7 @@
         .pt-safe { padding-top: max(1rem, env(safe-area-inset-top)); }
 
         .glass-pill {
-            background: rgba(18, 18, 18, 0.8);
+            background: rgba(18, 18, 18, 0.85);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.15);
@@ -188,27 +188,45 @@
                 </div>
             </div>
 
+            <!-- CONTENEDOR DE SUBTÍTULOS Y CONTADORES DE PALABRAS / TIEMPO -->
             <div class="absolute bottom-24 sm:bottom-28 left-3 right-3 sm:left-12 sm:right-12 max-w-3xl mx-auto z-30 pointer-events-none">
-                <div class="glass-pill p-3.5 sm:p-4 rounded-2xl border border-white/15 shadow-2xl backdrop-blur-xl">
-                    <div class="flex items-center justify-between mb-1">
-                        <div class="flex items-center space-x-1.5">
-                            <span class="w-2 h-2 rounded-full bg-pink-500 animate-pulse"></span>
-                            <span id="subtitleHeader" class="text-[10px] sm:text-xs font-bold tracking-wider text-pink-400 uppercase">
-                                TRADUCCIÓN EN TIEMPO REAL
+                <div class="glass-pill p-3.5 sm:p-4 rounded-2xl border border-white/15 shadow-2xl backdrop-blur-xl space-y-2">
+                    
+                    <!-- ENCABEZADO DE ESTADO DEL TURNO -->
+                    <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div class="flex items-center space-x-2">
+                            <span id="turnStatusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span id="turnStatusBadge" class="text-[10px] sm:text-xs font-bold tracking-wider text-emerald-400 uppercase">
+                                ESCUCHANDO TURNO DE HABLA
                             </span>
                         </div>
-                        <span id="detectedLangTag" class="text-[9px] font-mono text-gray-400 bg-white/10 px-1.5 py-0.5 rounded">
-                            Esperando voz...
+                        <span id="detectedLangTag" class="text-[9px] font-mono text-gray-300 bg-white/10 px-2 py-0.5 rounded border border-white/10">
+                            Detectado: -
                         </span>
                     </div>
 
-                    <p id="originalSpeechText" class="text-[11px] text-gray-400 italic min-h-[1.2rem] truncate">
-                        Habla naturally frente a la pantalla...
-                    </p>
+                    <!-- BARRA DE PROGRESO Y CONTADORES -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-[10px] font-mono text-gray-300">
+                            <span id="wordCounterText">Palabras: 0 / 120</span>
+                            <span id="timeCounterText">Tiempo: 0s / 60s</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden border border-white/10">
+                            <div id="turnProgressBar" class="h-full bg-gradient-to-r from-pink-500 to-emerald-400 w-0 transition-all duration-300"></div>
+                        </div>
+                    </div>
 
-                    <div class="bg-black/50 p-2 sm:p-2.5 rounded-xl border border-white/10 mt-1">
-                        <p id="translatedSubtitleText" class="text-sm sm:text-base font-semibold text-white leading-snug subtitle-fade">
-                            La traducción generada en voz y texto aparecerá aquí.
+                    <!-- TEXTO ORIGINAL EN TIEMPO REAL -->
+                    <div>
+                        <p id="originalSpeechText" class="text-[11px] sm:text-xs text-gray-300 italic max-h-16 overflow-y-auto leading-relaxed">
+                            Puedes hablar continuamente hasta 1 minuto o 120 palabras...
+                        </p>
+                    </div>
+
+                    <!-- TRADUCCIÓN GENERADA -->
+                    <div class="bg-black/60 p-2.5 sm:p-3 rounded-xl border border-white/10">
+                        <p id="translatedSubtitleText" class="text-xs sm:text-base font-semibold text-white leading-snug subtitle-fade">
+                            La traducción generada se mostrará aquí al finalizar tu bloque de voz.
                         </p>
                     </div>
                 </div>
@@ -235,7 +253,7 @@
     </div>
 
     <script>
-        // DICCIONARIO PARA TRADUCCIÓN COMPLETA DE LA INTERFAZ USUARIO (i18n)
+        // DICCIONARIO INTERFAZ DE USUARIO (i18n)
         const i18n = {
             es: {
                 title: "Translator Call",
@@ -264,10 +282,11 @@
                 fallbackSubtext: "Comparte el código de la sala para iniciar la traducción.",
                 camOffText: "Cam Off",
                 youText: "Tú",
-                subtitleHeader: "TRADUCCIÓN EN TIEMPO REAL",
-                waitingSpeechTag: "Esperando voz...",
-                speechPlaceholder: "Habla naturalmente frente a la pantalla...",
-                translatedPlaceholder: "La traducción generada en voz y texto aparecerá aquí.",
+                listeningTurn: "ESCUCHANDO TURNO DE HABLA",
+                sendingTurn: "TRADUCIENDO Y ENVIANDO...",
+                sentTurn: "¡ENVIADO! PUEDES HABLAR DE NUEVO",
+                speechPlaceholder: "Puedes hablar continuamente hasta 1 minuto o 120 palabras...",
+                translatedPlaceholder: "La traducción generada se mostrará aquí al finalizar tu bloque de voz.",
                 micMutedText: "Micrófono silenciado.",
                 shareText: "¡Únete a mi videollamada traducida! Código de sala: "
             },
@@ -298,10 +317,11 @@
                 fallbackSubtext: "Share the room code to start translation.",
                 camOffText: "Cam Off",
                 youText: "You",
-                subtitleHeader: "REAL-TIME TRANSLATION",
-                waitingSpeechTag: "Waiting for speech...",
-                speechPlaceholder: "Speak naturally in front of the screen...",
-                translatedPlaceholder: "Generated speech and text translation will appear here.",
+                listeningTurn: "LISTENING SPEECH TURN",
+                sendingTurn: "TRANSLATING & SENDING...",
+                sentTurn: "SENT! YOU CAN SPEAK AGAIN",
+                speechPlaceholder: "You can speak continuously up to 1 minute or 120 words...",
+                translatedPlaceholder: "Generated translation will appear here after finishing your speech block.",
                 micMutedText: "Microphone muted.",
                 shareText: "Join my translated video call! Room code: "
             }
@@ -325,11 +345,17 @@
         let speechRecognizer = null;
         let availableVoices = [];
         let isRecognizing = false;
-        let lastProcessedText = "";
 
-        // Control de acumulación de frases largas
+        // PARÁMETROS DEL BÚFER DE HABLA AMPLIADO
+        const MAX_WORDS = 120;
+        const MAX_TIME_SECONDS = 60;
+        let turnTimeElapsed = 0;
+        let turnTimer = null;
         let silenceTimer = null;
-        let currentAccumulatedSpeech = "";
+        let isProcessingTurn = false;
+
+        let finalSentencesBuffer = [];
+        let currentInterimText = "";
 
         function updateUILanguage(lang) {
             const texts = i18n[lang] || i18n.es;
@@ -361,8 +387,6 @@
             document.getElementById("fallbackSubtext").textContent = texts.fallbackSubtext;
             document.getElementById("uiCamOffText").textContent = texts.camOffText;
             document.getElementById("uiYouText").textContent = texts.youText;
-            document.getElementById("subtitleHeader").textContent = texts.subtitleHeader;
-            document.getElementById("detectedLangTag").textContent = texts.waitingSpeechTag;
             document.getElementById("originalSpeechText").textContent = texts.speechPlaceholder;
             document.getElementById("translatedSubtitleText").textContent = texts.translatedPlaceholder;
         }
@@ -454,9 +478,7 @@
             try {
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const hasCamera = devices.some(d => d.kind === "videoinput");
-                if (!hasCamera) {
-                    return null;
-                }
+                if (!hasCamera) return null;
             } catch (err) {}
 
             const attempts = [
@@ -472,7 +494,6 @@
                     await new Promise(r => setTimeout(r, 200));
                 }
             }
-
             return null;
         }
 
@@ -658,7 +679,97 @@
             badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full ${dotBg}"></span><span>${text}</span>`;
         }
 
-        /* RECONOCIMIENTO DE VOZ EXCLUSIVO PARA ESPAÑOL E INGLÉS */
+        /* LÓGICA AVANZADA DE RECONOCIMIENTO DE VOZ CON BÚFER DE 1 MINUTO Y INDICADOR DE PALABRAS */
+
+        function setTurnStatusUI(state, text) {
+            const dot = document.getElementById("turnStatusDot");
+            const badge = document.getElementById("turnStatusBadge");
+            if (!dot || !badge) return;
+
+            if (state === "listening") {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+                badge.className = "text-[10px] sm:text-xs font-bold tracking-wider text-emerald-400 uppercase";
+                badge.textContent = text || i18n[userConfig.targetLang].listeningTurn;
+            } else if (state === "sending") {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping";
+                badge.className = "text-[10px] sm:text-xs font-bold tracking-wider text-amber-400 uppercase";
+                badge.textContent = text || i18n[userConfig.targetLang].sendingTurn;
+            } else if (state === "sent") {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-blue-400";
+                badge.className = "text-[10px] sm:text-xs font-bold tracking-wider text-blue-400 uppercase";
+                badge.textContent = text || i18n[userConfig.targetLang].sentTurn;
+            }
+        }
+
+        function countWords(str) {
+            if (!str || !str.trim()) return 0;
+            return str.trim().split(/\s+/).length;
+        }
+
+        function sanitizeAndDeduplicate(text) {
+            if (!text) return "";
+            let cleaned = text.replace(/\s+/g, " ").trim();
+            // Elimina secuencias de frases idénticas repetidas por el bug de STT
+            const words = cleaned.split(" ");
+            const dedupedWords = [];
+            for (let i = 0; i < words.length; i++) {
+                if (i > 0 && words[i].toLowerCase() === words[i-1].toLowerCase() && words[i].length > 2) {
+                    continue;
+                }
+                dedupedWords.push(words[i]);
+            }
+            return dedupedWords.join(" ");
+        }
+
+        function getFullSpokenText() {
+            let combined = finalSentencesBuffer.join(" ");
+            if (currentInterimText.trim()) {
+                combined += " " + currentInterimText.trim();
+            }
+            return sanitizeAndDeduplicate(combined);
+        }
+
+        function updateBufferUI() {
+            const fullText = getFullSpokenText();
+            const words = countWords(fullText);
+
+            document.getElementById("wordCounterText").textContent = `Palabras: ${words} / ${MAX_WORDS}`;
+            document.getElementById("timeCounterText").textContent = `Tiempo: ${turnTimeElapsed}s / ${MAX_TIME_SECONDS}s`;
+
+            const wordPct = (words / MAX_WORDS) * 100;
+            const timePct = (turnTimeElapsed / MAX_TIME_SECONDS) * 100;
+            const maxPct = Math.min(Math.max(wordPct, timePct), 100);
+
+            document.getElementById("turnProgressBar").style.width = `${maxPct}%`;
+
+            if (fullText.length > 0) {
+                document.getElementById("originalSpeechText").textContent = fullText;
+            } else {
+                document.getElementById("originalSpeechText").textContent = i18n[userConfig.targetLang].speechPlaceholder;
+            }
+        }
+
+        function startTurnTimer() {
+            if (turnTimer) return;
+            turnTimeElapsed = 0;
+            turnTimer = setInterval(() => {
+                turnTimeElapsed++;
+                updateBufferUI();
+                if (turnTimeElapsed >= MAX_TIME_SECONDS) {
+                    finishAndSendTurn("Límite de tiempo alcanzado (60s)");
+                }
+            }, 1000);
+        }
+
+        function resetSpeechBuffer() {
+            finalSentencesBuffer = [];
+            currentInterimText = "";
+            turnTimeElapsed = 0;
+            if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
+            if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+            updateBufferUI();
+        }
+
         function initSpeechRecognition() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -678,36 +789,44 @@
 
             speechRecognizer.onstart = () => {
                 isRecognizing = true;
-                const texts = i18n[userConfig.targetLang];
-                document.getElementById("originalSpeechText").textContent = texts.speechPlaceholder;
+                setTurnStatusUI("listening");
             };
 
             speechRecognizer.onresult = (event) => {
-                let interimText = "";
+                if (isProcessingTurn) return;
+
+                startTurnTimer();
 
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        currentAccumulatedSpeech += " " + transcript;
+                        const trimmed = transcript.trim();
+                        if (trimmed && finalSentencesBuffer[finalSentencesBuffer.length - 1] !== trimmed) {
+                            finalSentencesBuffer.push(trimmed);
+                        }
+                        currentInterimText = "";
                     } else {
-                        interimText += transcript;
+                        currentInterimText = transcript;
                     }
                 }
 
-                const fullSpokenText = (currentAccumulatedSpeech + " " + interimText).trim();
+                updateBufferUI();
 
-                if (fullSpokenText.length > 0) {
-                    document.getElementById("originalSpeechText").textContent = `${fullSpokenText}`;
+                const fullText = getFullSpokenText();
+                const wordCount = countWords(fullText);
 
-                    clearTimeout(silenceTimer);
-                    silenceTimer = setTimeout(() => {
-                        if (fullSpokenText.length > 0 && fullSpokenText !== lastProcessedText) {
-                            lastProcessedText = fullSpokenText;
-                            currentAccumulatedSpeech = "";
-                            sendSpeechForTranslation(fullSpokenText);
-                        }
-                    }, 1200);
+                if (wordCount >= MAX_WORDS) {
+                    finishAndSendTurn("Límite de palabras alcanzado (120)");
+                    return;
                 }
+
+                // Pausa de silencio más holgada (2.5 segundos) para no cortar frases largas
+                clearTimeout(silenceTimer);
+                silenceTimer = setTimeout(() => {
+                    if (wordCount > 0 && !isProcessingTurn) {
+                        finishAndSendTurn("Pausa detectada");
+                    }
+                }, 2500);
             };
 
             speechRecognizer.onerror = (event) => {
@@ -721,15 +840,8 @@
 
             speechRecognizer.onend = () => {
                 isRecognizing = false;
-                if (currentAccumulatedSpeech.trim().length > 0 && currentAccumulatedSpeech.trim() !== lastProcessedText) {
-                    let pendingText = currentAccumulatedSpeech.trim();
-                    lastProcessedText = pendingText;
-                    currentAccumulatedSpeech = "";
-                    sendSpeechForTranslation(pendingText);
-                }
-
-                if (!isMicMuted) {
-                    setTimeout(() => { safeStartSTT(); }, 400);
+                if (!isMicMuted && !isProcessingTurn) {
+                    setTimeout(() => { safeStartSTT(); }, 300);
                 }
             };
 
@@ -738,7 +850,7 @@
 
         let sttStarting = false;
         function safeStartSTT() {
-            if (!speechRecognizer || isMicMuted || isRecognizing || sttStarting) return;
+            if (!speechRecognizer || isMicMuted || isRecognizing || sttStarting || isProcessingTurn) return;
             sttStarting = true;
             try {
                 speechRecognizer.start();
@@ -749,34 +861,62 @@
             }
         }
 
-        async function sendSpeechForTranslation(text) {
-            let detected = detectLanguage(text);
+        async function finishAndSendTurn(reason) {
+            if (isProcessingTurn) return;
+            isProcessingTurn = true;
+
+            clearTimeout(silenceTimer);
+            if (turnTimer) { clearInterval(turnTimer); turnTimer = null; }
+
+            const fullSpeech = getFullSpokenText();
+
+            if (!fullSpeech || fullSpeech.trim().length === 0) {
+                isProcessingTurn = false;
+                resetSpeechBuffer();
+                return;
+            }
+
+            if (speechRecognizer) {
+                try { speechRecognizer.stop(); } catch(e){}
+            }
+
+            setTurnStatusUI("sending");
+
+            let detected = detectLanguage(fullSpeech);
             let targetLang = getDestinationLanguage(detected);
 
             document.getElementById("detectedLangTag").textContent = "Detectado: " + detected.toUpperCase();
 
-            let translated = await translateText(text, detected, targetLang);
+            let translated = await translateText(fullSpeech, detected, targetLang);
             showTranslation(translated);
 
             if (dataConnection && dataConnection.open) {
                 dataConnection.send(JSON.stringify({
                     type: "SPEECH_TEXT",
-                    text: text,
+                    text: fullSpeech,
                     sourceLang: detected
                 }));
             }
+
+            setTurnStatusUI("sent");
+
+            setTimeout(() => {
+                resetSpeechBuffer();
+                isProcessingTurn = false;
+                setTurnStatusUI("listening");
+                if (!isMicMuted) {
+                    safeStartSTT();
+                }
+            }, 1800);
         }
 
-        /* DETECCIÓN DE IDIOMA EXCLUSIVA Y PRECISA (ESPAÑOL vs INGLÉS) */
         function detectLanguage(text) {
             const lower = ` ${text.toLowerCase()} `;
-            
-            const esMatches = (lower.match(/\b(hola|gracias|necesito|quiero|puedo|podria|podría|donde|dónde|como|cómo|estoy|estás|usted|mañana|ayuda|buenas|buenos|que|qué|por favor|si|sí|bien|mal|tengo|tienes|casa|trabajo|hoy|ahora|cuando|cuándo|porque|porqué|para|pero|también|muy|mucho|poco|dientes|cabello|canas|instale|casi|todos|mis)\b/g) || []).length;
-            const enMatches = (lower.match(/\b(hello|hi|hey|thanks|thank|need|want|where|how|you|help|please|good|yes|today|now|work|have|has|the|is|are|what|when|why|because|but|also|very|much|little|teeth|hair|almost|my|your)\b/g) || []).length;
+            const esMatches = (lower.match(/\b(hola|gracias|necesito|quiero|puedo|podria|podría|donde|dónde|como|cómo|estoy|estás|usted|mañana|ayuda|buenas|buenos|que|qué|por favor|si|sí|bien|mal|tengo|tienes|casa|trabajo|hoy|ahora|cuando|cuándo|porque|porqué|para|pero|también|muy|mucho|poco|dientes|cabello|canas|instale|casi|todos|mis|noche|brisa|canta|sombra|luz|bosque|encanto|alba|aire|pensamiento)\b/g) || []).length;
+            const enMatches = (lower.match(/\b(under|blue|flash|clear|night|rises|singer|breeze|never|stops|searching|shadow|light|illuminates|face|while|happy|forest|prepares|charm|dawn|arrives|bringing|gentle|breath|full|space|joy|flying|life|always|following|wind|free|awake|pure|thought)\b/g) || []).length;
 
             if (esMatches > enMatches) return "es";
             if (enMatches > esMatches) return "en";
-
             return userConfig.targetLang || "es";
         }
 
